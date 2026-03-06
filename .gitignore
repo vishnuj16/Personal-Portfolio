@@ -1,0 +1,18 @@
+# --- Frontend (React/Vite) ---
+portfolio/node_modules/
+portfolio/dist/
+portfolio/.env.local
+
+# --- Backend (Go) ---
+backend/bin/
+backend/main
+backend/.env
+# Ignore the SQLite database file so you don't overwrite 
+# your production data with local test data
+backend/*.db
+backend/*.db-journal
+
+# --- OS / IDE ---
+.DS_Store
+.vscode/
+.idea/
