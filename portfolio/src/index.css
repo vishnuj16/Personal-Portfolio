@@ -131,3 +131,34 @@ input, textarea, select {
   outline-offset: 4px;
   cursor: text;
 }
+
+/* ─── Add these keyframes to your global CSS (index.css / App.css) ─────────
+   Required by view modals (ProjectViewModal, ExperienceViewModal, EducationViewModal)
+   and the EditModal fadeInUp animation. ──────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

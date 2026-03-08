@@ -11,6 +11,7 @@ backend/.env
 # your production data with local test data
 backend/*.db
 backend/*.db-journal
+backend/uploads/
 
 # --- OS / IDE ---
 .DS_Store

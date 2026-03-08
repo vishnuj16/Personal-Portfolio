@@ -67,15 +67,9 @@ func migrate() {
 		updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS project_tags (
-		project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-		tag        TEXT    NOT NULL,
-		PRIMARY KEY (project_id, tag)
-	);
-
 	CREATE TABLE IF NOT EXISTS project_skills (
 		project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-		skill_id   INTEGER NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+		skill_id   INTEGER NOT NULL REFERENCES skills(id)   ON DELETE CASCADE,
 		PRIMARY KEY (project_id, skill_id)
 	);
 
@@ -130,6 +124,9 @@ func migrate() {
 		created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	-- Drop legacy tags table if it still exists (idempotent migration)
+	DROP TABLE IF EXISTS project_tags;
 
 	-- Seed empty profile row if not exists
 	INSERT OR IGNORE INTO profile (id, name) VALUES (1, 'Vishnu');

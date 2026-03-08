@@ -27,23 +27,22 @@ type Skill struct {
 }
 
 type Project struct {
-	ID          int64     `json:"id"`
-	Title       string    `json:"title"`
-	Slug        string    `json:"slug"`
-	Summary     *string   `json:"summary"`
-	Description *string   `json:"description"`
-	CoverURL    *string   `json:"cover_url"`
-	RepoURL     *string   `json:"repo_url"`
-	LiveURL     *string   `json:"live_url"`
-	Status      string    `json:"status"`
-	Featured    bool      `json:"featured"`
-	SortOrder   int       `json:"sort_order"`
-	StartedAt   *string   `json:"started_at"`
-	EndedAt     *string   `json:"ended_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Tags        []string  `json:"tags,omitempty"`
-	Skills      []Skill   `json:"skills,omitempty"`
+	ID          int64          `json:"id"`
+	Title       string         `json:"title"`
+	Slug        string         `json:"slug"`
+	Summary     *string        `json:"summary"`
+	Description *string        `json:"description"`
+	CoverURL    *string        `json:"cover_url"`
+	RepoURL     *string        `json:"repo_url"`
+	LiveURL     *string        `json:"live_url"`
+	Status      string         `json:"status"`
+	Featured    bool           `json:"featured"`
+	SortOrder   int            `json:"sort_order"`
+	StartedAt   *string        `json:"started_at"`
+	EndedAt     *string        `json:"ended_at"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	Skills      []Skill        `json:"skills,omitempty"`
 	Images      []ProjectImage `json:"images,omitempty"`
 }
 
