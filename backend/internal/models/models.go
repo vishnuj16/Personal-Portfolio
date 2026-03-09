@@ -55,21 +55,22 @@ type ProjectImage struct {
 }
 
 type Profile struct {
-	ID          int64     `json:"id"`
-	Name        *string   `json:"name"`
-	Tagline     *string   `json:"tagline"`
-	Bio         *string   `json:"bio"`
-	AvatarURL   *string   `json:"avatar_url"`
-	ResumeURL   *string   `json:"resume_url"`
-	Email       *string   `json:"email"`
-	Phone       *string   `json:"phone"`
-	GithubURL   *string   `json:"github_url"`
-	LinkedinURL *string   `json:"linkedin_url"`
-	TwitterURL  *string   `json:"twitter_url"`
-	WebsiteURL  *string   `json:"website_url"`
-	Location    *string   `json:"location"`
-	Available   bool      `json:"available"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            int64     `json:"id"`
+	Name          *string   `json:"name"`
+	Tagline       *string   `json:"tagline"`
+	Bio           *string   `json:"bio"`
+	AvatarURL     *string   `json:"avatar_url"`
+	ResumeURL     *string   `json:"resume_url"`
+	Email         *string   `json:"email"`
+	Phone         *string   `json:"phone"`
+	GithubURL     *string   `json:"github_url"`
+	LinkedinURL   *string   `json:"linkedin_url"`
+	TwitterURL    *string   `json:"twitter_url"`
+	WebsiteURL    *string   `json:"website_url"`
+	Location      *string   `json:"location"`
+	Available     bool      `json:"available"`
+	AuthorTagline *string   `json:"author_tagline"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Experience struct {
@@ -97,4 +98,30 @@ type Education struct {
 	EndedAt     *string   `json:"ended_at"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type Book struct {
+	ID            int64     `json:"id"`
+	Title         string    `json:"title"`
+	Slug          string    `json:"slug"`
+	Subtitle      *string   `json:"subtitle"`
+	Description   *string   `json:"description"`
+	CoverURL      *string   `json:"cover_url"`
+	Genre         *string   `json:"genre"`     // "literary fiction", "thriller", "sci-fi", etc.
+	BookType      string    `json:"book_type"` // "novel" | "novella" | "short story" | "collection" | "non-fiction"
+	Published     bool      `json:"published"`
+	SelfPublished bool      `json:"self_published"`
+	Publisher     *string   `json:"publisher"`
+	PublishedAt   *string   `json:"published_at"` // YYYY-MM-DD
+	AmazonURL     *string   `json:"amazon_url"`
+	GoodreadsURL  *string   `json:"goodreads_url"`
+	OtherBuyURL   *string   `json:"other_buy_url"`
+	Pages         *int      `json:"pages"`
+	ISBN          *string   `json:"isbn"`
+	Featured      bool      `json:"featured"`
+	NewRelease    bool      `json:"new_release"` // shown in hero spotlight
+	ThemeColor    *string   `json:"theme_color"` // hex e.g. "#e63946" — drives hero + card accents
+	SortOrder     int       `json:"sort_order"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }

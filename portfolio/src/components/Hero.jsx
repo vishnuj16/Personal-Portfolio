@@ -59,6 +59,7 @@ const PROFILE_FIELDS = [
   { key: 'bio',          label: 'bio',                type: 'textarea' },
   { key: 'email',        label: 'email' },
   { key: 'phone',        label: 'phone' },
+  { key: 'author_tagline', label: 'author tagline' },
   { key: 'location',     label: 'location' },
   { key: 'github_url',   label: 'github_url' },
   { key: 'linkedin_url', label: 'linkedin_url' },
@@ -469,7 +470,7 @@ export default function Hero() {
 
             {/* ── Resume ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '20px', flexWrap: 'wrap' }}>
-              {resumeExists && !isEditMode && <ResumeDownloadButton />}
+              {resumeExists && <ResumeDownloadButton />}
               {isEditMode && (
                 <ResumeUploadZone onUploaded={() => { setTimeout(checkResume, 200) }} />
               )}

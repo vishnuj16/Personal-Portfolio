@@ -1,78 +1,50 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { verifyPasskey, setToken, clearToken } from '../api'
-
-const COOKIE_NAME = 'portfolio_admin_token'
-const COOKIE_EXPIRY_NAME = 'portfolio_admin_expiry'
-
-const setCookie = (name, value, seconds) => {
-  const expires = new Date(Date.now() + seconds * 1000).toUTCString()
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict`
-}
-
-const getCookie = (name) => {
-  const match = document.cookie.split('; ').find(row => row.startsWith(name + '='))
-  return match ? decodeURIComponent(match.split('=')[1]) : null
-}
-
-const deleteCookie = (name) => {
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`
-}
+import { createContext, useContext, useState, useEffect } from 'react'
 
 const AuthContext = createContext(null)
 
-export const AuthProvider = ({ children }) => {
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [adminName, setAdminName] = useState('')
+export function AuthProvider({ children }) {
+  const [isAdmin, setIsAdmin]       = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
+  const [adminName, setAdminName]   = useState('')
 
-  // Restore session from cookie on mount
+  // Restore session from localStorage on mount
   useEffect(() => {
-    const token = getCookie(COOKIE_NAME)
-    const expiry = getCookie(COOKIE_EXPIRY_NAME)
-    if (token && expiry && Date.now() < Number(expiry)) {
-      setToken(token)
+    const token = localStorage.getItem('admin_token')
+    const name  = localStorage.getItem('admin_name')
+    if (token) {
       setIsAdmin(true)
-      setAdminName('Vishnu')
-      setIsEditMode(true)
-    } else {
-      deleteCookie(COOKIE_NAME)
-      deleteCookie(COOKIE_EXPIRY_NAME)
+      setAdminName(name || '')
     }
   }, [])
 
-  const login = useCallback(async (passkey) => {
-    const data = await verifyPasskey(passkey)
-    setToken(data.token)
+  // Called by LoginModal after a successful passkey verify
+  const login = (token, name) => {
+    localStorage.setItem('admin_token', token)
+    localStorage.setItem('admin_name', name || '')
     setIsAdmin(true)
-    setAdminName('Vishnu')
-    setIsEditMode(true)
-    const ttl = (data.expires_in || 86400) - 60
-    setCookie(COOKIE_NAME, data.token, ttl)
-    setCookie(COOKIE_EXPIRY_NAME, String(Date.now() + ttl * 1000), ttl)
-    return data
-  }, [])
+    setAdminName(name || '')
+    setIsEditMode(true)   // go straight into edit mode on login
+  }
 
-  const logout = useCallback(() => {
-    clearToken()
+  const logout = () => {
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_name')
     setIsAdmin(false)
-    setAdminName('')
     setIsEditMode(false)
-    setModalOpen(false)
-    deleteCookie(COOKIE_NAME)
-    deleteCookie(COOKIE_EXPIRY_NAME)
-  }, [])
+    setAdminName('')
+  }
+
+  const toggleEditMode = () => setIsEditMode(prev => !prev)
 
   return (
-    <AuthContext.Provider value={{
-      isAdmin, adminName,
-      isEditMode, setIsEditMode,
-      modalOpen, setModalOpen,
-      login, logout
-    }}>
+    <AuthContext.Provider value={{ isAdmin, isEditMode, adminName, login, logout, toggleEditMode }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
+  return ctx
+}

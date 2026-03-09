@@ -96,8 +96,9 @@ func migrate() {
 		twitter_url  TEXT,
 		website_url  TEXT,
 		location     TEXT,
-		available    INTEGER DEFAULT 1,
-		updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+		available      INTEGER DEFAULT 1,
+		author_tagline TEXT,
+		updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
 
@@ -129,6 +130,32 @@ func migrate() {
 		updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS books (
+		id             INTEGER PRIMARY KEY AUTOINCREMENT,
+		title          TEXT    NOT NULL,
+		slug           TEXT    NOT NULL UNIQUE,
+		subtitle       TEXT,
+		description    TEXT,
+		cover_url      TEXT,
+		genre          TEXT,
+		book_type      TEXT    NOT NULL DEFAULT 'novel' CHECK(book_type IN ('novel','novella','short story','collection','non-fiction','poetry')),
+		published      INTEGER DEFAULT 0,
+		self_published INTEGER DEFAULT 0,
+		publisher      TEXT,
+		published_at   DATE,
+		amazon_url     TEXT,
+		goodreads_url  TEXT,
+		other_buy_url  TEXT,
+		pages          INTEGER,
+		isbn           TEXT,
+		featured       INTEGER DEFAULT 0,
+		new_release    INTEGER DEFAULT 0,
+		theme_color    TEXT,
+		sort_order     INTEGER DEFAULT 0,
+		created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
 	-- Drop legacy tags table if it still exists (idempotent migration)
 	DROP TABLE IF EXISTS project_tags;
 
@@ -144,6 +171,8 @@ func migrate() {
 	// so we attempt the ALTER and ignore "duplicate column name" errors silently.
 	columnMigrations := []string{
 		"ALTER TABLE profile ADD COLUMN phone TEXT",
+		"ALTER TABLE profile ADD COLUMN author_tagline TEXT",
+		"ALTER TABLE books ADD COLUMN theme_color TEXT",
 	}
 	for _, stmt := range columnMigrations {
 		if _, err := DB.Exec(stmt); err != nil {

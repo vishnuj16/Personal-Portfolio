@@ -82,6 +82,10 @@ func main() {
 
 		api.GET("/resume", handlers.ServeResume)
 		api.HEAD("/resume", handlers.ServeResume)
+
+		// Books — public
+		api.GET("/books", handlers.GetBooks)
+		api.GET("/books/:slug", handlers.GetBook)
 	}
 
 	// ─── Admin API (JWT-protected) ───────────────────────────────────────────
@@ -124,6 +128,13 @@ func main() {
 		// Resume actions
 		admin.POST("/resume/upload", handlers.UploadResume)
 		admin.DELETE("/resume", handlers.DeleteResume)
+
+		// Books — admin
+		admin.POST("/books", handlers.CreateBook)
+		admin.POST("/books/set-featured", handlers.SetFeaturedBooks) // must be before :id route
+		admin.POST("/books/set-new-release", handlers.SetNewRelease) // must be before :id route
+		admin.PATCH("/books/:id", handlers.UpdateBook)
+		admin.DELETE("/books/:id", handlers.DeleteBook)
 	}
 
 	port := os.Getenv("PORT")

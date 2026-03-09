@@ -98,3 +98,20 @@ export const uploadResume = (file) => {
 }
 
 export const deleteResume = () => req('DELETE', '/api/admin/resume', null, true)
+
+// Books
+export const getBooks = (params = {}) => {
+  const q = new URLSearchParams()
+  if (params.genre)       q.set('genre', params.genre)
+  if (params.type)        q.set('type', params.type)
+  if (params.featured)    q.set('featured', 'true')
+  if (params.new_release) q.set('new_release', 'true')
+  if (params.published)   q.set('published', 'true')
+  return req('GET', `/api/books${q.toString() ? `?${q}` : ''}`)
+}
+export const getBook = (slug) => req('GET', `/api/books/${slug}`)
+export const createBook = (data) => req('POST', '/api/admin/books', data, true)
+export const updateBook = (id, data) => req('PATCH', `/api/admin/books/${id}`, data, true)
+export const deleteBook = (id) => req('DELETE', `/api/admin/books/${id}`, null, true)
+export const setFeaturedBooks = (ids) => req('POST', '/api/admin/books/set-featured', { ids }, true)
+export const setNewRelease = (id) => req('POST', '/api/admin/books/set-new-release', { id }, true)
