@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"log"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -89,6 +90,7 @@ func migrate() {
 		avatar_url   TEXT,
 		resume_url   TEXT,
 		email        TEXT,
+		phone        TEXT,
 		github_url   TEXT,
 		linkedin_url TEXT,
 		twitter_url  TEXT,
@@ -97,6 +99,8 @@ func migrate() {
 		available    INTEGER DEFAULT 1,
 		updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+
 
 	CREATE TABLE IF NOT EXISTS experiences (
 		id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,5 +138,19 @@ func migrate() {
 
 	if _, err := DB.Exec(schema); err != nil {
 		log.Fatalf("Migration failed: %v", err)
+	}
+
+	// Idempotent column additions — SQLite doesn't support ADD COLUMN IF NOT EXISTS,
+	// so we attempt the ALTER and ignore "duplicate column name" errors silently.
+	columnMigrations := []string{
+		"ALTER TABLE profile ADD COLUMN phone TEXT",
+	}
+	for _, stmt := range columnMigrations {
+		if _, err := DB.Exec(stmt); err != nil {
+			// "duplicate column name" means the column already exists — safe to ignore
+			if !strings.Contains(err.Error(), "duplicate column name") {
+				log.Fatalf("Column migration failed: %v", err)
+			}
+		}
 	}
 }

@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8080'
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
 let authToken = null
 
@@ -70,34 +70,31 @@ export const createEducation = (data) => req('POST', '/api/admin/education', dat
 export const updateEducation = (id, data) => req('PATCH', `/api/admin/education/${id}`, data, true)
 export const deleteEducation = (id) => req('DELETE', `/api/admin/education/${id}`, null, true)
 
-// Upload
-// ... existing code above ...
-
 // Upload & Media
-/**
- * Upload an image file to the given bucket.
- * @param {File} file - the File object
- * @param {string} bucket - "projects" | "skills" | "categories" | "education" | "experiences" | "avatars"
- */
 export const uploadFile = (file, bucket = 'misc') => {
   const form = new FormData()
   form.append('file', file)
   form.append('bucket', bucket)
-  // We use isAdmin=true and isMultipart=true to trigger your existing header logic
   return req('POST', '/api/admin/upload', form, true, true)
 }
-
-/**
- * Delete a previously-uploaded file by its public URL path.
- * @param {string} path - the /uploads/... path
- */
 export const deleteFile = (path) => req('DELETE', '/api/admin/upload', { path }, true)
-
-/**
- * Converts a relative path to an absolute URL for the frontend
- */
 export const imgUrl = (url) => {
   if (!url) return null
-  if (url.startsWith('http')) return url // already absolute
+  if (url.startsWith('http')) return url
   return `${BASE_URL}${url}`
 }
+
+// Resume
+// checkResume: raw fetch — HEAD returns no body so we must NOT use req() which calls res.json()
+export const checkResume = () =>
+  fetch(`${BASE_URL}/api/resume`, { method: 'HEAD' })
+    .then(r => r.ok)
+    .catch(() => false)
+
+export const uploadResume = (file) => {
+  const form = new FormData()
+  form.append('file', file)
+  return req('POST', '/api/admin/resume/upload', form, true, true)
+}
+
+export const deleteResume = () => req('DELETE', '/api/admin/resume', null, true)

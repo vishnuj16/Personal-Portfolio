@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -19,6 +20,8 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, relying on environment variables")
 	}
+
+	fmt.Println("Loaded ENV: ", os.Getenv("ADMIN_PASSKEY"), os.Getenv("JWT_SECRET"))
 
 	// Validate required env vars
 	if os.Getenv("ADMIN_PASSKEY") == "" || os.Getenv("JWT_SECRET") == "" {
@@ -45,7 +48,12 @@ func main() {
 		frontendOrigin = "http://localhost:5173" // Vite default
 	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{frontendOrigin},
+		// AllowOrigins:     []string{frontendOrigin},
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			"http://[::1]:5173",
+		},
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -71,6 +79,9 @@ func main() {
 
 		api.GET("/experiences", handlers.ListExperiences)
 		api.GET("/education", handlers.ListEducation)
+
+		api.GET("/resume", handlers.ServeResume)
+		api.HEAD("/resume", handlers.ServeResume)
 	}
 
 	// ─── Admin API (JWT-protected) ───────────────────────────────────────────
@@ -109,6 +120,10 @@ func main() {
 		// File uploads
 		admin.POST("/upload", handlers.UploadFile)
 		admin.DELETE("/upload", handlers.DeleteFile)
+
+		// Resume actions
+		admin.POST("/resume/upload", handlers.UploadResume)
+		admin.DELETE("/resume", handlers.DeleteResume)
 	}
 
 	port := os.Getenv("PORT")

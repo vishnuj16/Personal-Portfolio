@@ -62,6 +62,7 @@ type Profile struct {
 	AvatarURL   *string   `json:"avatar_url"`
 	ResumeURL   *string   `json:"resume_url"`
 	Email       *string   `json:"email"`
+	Phone       *string   `json:"phone"`
 	GithubURL   *string   `json:"github_url"`
 	LinkedinURL *string   `json:"linkedin_url"`
 	TwitterURL  *string   `json:"twitter_url"`
