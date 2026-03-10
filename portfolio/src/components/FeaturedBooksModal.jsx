@@ -19,7 +19,7 @@ function isLight(hex) {
 export default function FeaturedBooksModal({ books, onSave, onClose }) {
   // Start with currently featured books selected
   const [selected, setSelected] = useState(() =>
-    new Set(books.filter(b => b.featured && !b.new_release).map(b => b.id))
+    new Set(books.filter(b => b.featured && !b.new_release && !b.coming_soon).map(b => b.id))
   )
   const [saving, setSaving] = useState(false)
 
@@ -49,8 +49,8 @@ export default function FeaturedBooksModal({ books, onSave, onClose }) {
     onClose()
   }
 
-  // All books are eligible to be featured (new_release books can appear in both hero + featured)
-  const eligible = books
+  // Exclude coming_soon/WIP books — only published books can be featured
+  const eligible = books.filter(b => !b.coming_soon)
   const atCap = selected.size >= MAX_FEATURED
 
   return (

@@ -1,7 +1,7 @@
 import { useAuth } from '../context/AuthContext'
 
 export default function AuthorAdminBanner() {
-  const { isAdmin, adminName, isEditMode, setIsEditMode, modalOpen, logout } = useAuth()
+  const { isAdmin, adminName, isEditMode, toggleEditMode, logout } = useAuth()
   if (!isAdmin) return null
 
   return (
@@ -33,8 +33,7 @@ export default function AuthorAdminBanner() {
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         <button
-          onClick={() => !modalOpen && setIsEditMode(e => !e)}
-          title={modalOpen ? 'Close the open modal first' : ''}
+          onClick={toggleEditMode}
           style={{
             background: isEditMode ? 'rgba(201,168,76,0.15)' : 'transparent',
             border: `1px solid ${isEditMode ? 'rgba(201,168,76,0.6)' : 'rgba(245,240,232,0.2)'}`,
@@ -42,22 +41,18 @@ export default function AuthorAdminBanner() {
             padding: '4px 14px', borderRadius: '4px', fontSize: '0.74rem',
             fontFamily: "'Lora', Georgia, serif",
             transition: 'all 0.2s',
-            opacity: modalOpen ? 0.4 : 1,
-            cursor: modalOpen ? 'not-allowed' : 'pointer',
+            cursor: 'pointer',
           }}
         >
           {isEditMode ? '✎ Editing' : '✎ Edit Mode'}
-          {modalOpen && <span style={{ marginLeft: 6, fontSize: '0.62rem' }}>(modal open)</span>}
         </button>
         <button
           onClick={logout}
-          disabled={modalOpen}
           style={{
             background: 'transparent', border: '1px solid rgba(255,120,80,0.3)',
             color: 'rgba(255,140,100,0.7)', padding: '4px 12px', borderRadius: '4px',
             fontSize: '0.74rem', fontFamily: "'Lora', Georgia, serif",
-            transition: 'all 0.2s', opacity: modalOpen ? 0.4 : 1,
-            cursor: modalOpen ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s', cursor: 'pointer',
           }}
         >
           leave desk

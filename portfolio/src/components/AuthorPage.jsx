@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getBooks, getProfile, updateProfile, deleteBook, imgUrl, uploadFile, setFeaturedBooks, setNewRelease } from '../api'
 import AuthorNavbar from './AuthorNavbar'
@@ -25,17 +25,26 @@ function hexToRgb(hex) {
   const h = (hex || '#c9a84c').replace('#', '')
   return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) }
 }
+// Cache keyed by "hex|alpha" — avoids repeated parseInt on identical inputs
+const _rgbaCache = {}
+const _rgbCache  = {}
+function _rgb(hex) {
+  if (_rgbCache[hex]) return _rgbCache[hex]
+  return (_rgbCache[hex] = hexToRgb(hex))
+}
 function rgba(hex, a) {
-  const { r, g, b } = hexToRgb(hex)
-  return `rgba(${r},${g},${b},${a})`
+  const key = hex + '|' + a
+  if (_rgbaCache[key]) return _rgbaCache[key]
+  const { r, g, b } = _rgb(hex)
+  return (_rgbaCache[key] = `rgba(${r},${g},${b},${a})`)
 }
 function darken(hex, amt) {
-  const { r, g, b } = hexToRgb(hex)
+  const { r, g, b } = _rgb(hex)
   const d = v => Math.max(0, Math.floor(v * (1 - amt)))
   return `rgb(${d(r)},${d(g)},${d(b)})`
 }
 function isLight(hex) {
-  const { r, g, b } = hexToRgb(hex)
+  const { r, g, b } = _rgb(hex)
   return (r*299 + g*587 + b*114) / 1000 > 128
 }
 
@@ -58,7 +67,7 @@ const Divider = ({ color = 'rgba(201,168,76,0.25)' }) => (
 )
 
 // ─── Book card (theme-coloured, clickable) ────────────────────────────────────
-function BookCard({ book, isEditMode, onEdit, onDelete, onView, featured = false }) {
+const BookCard = memo(function BookCard({ book, isEditMode, onEdit, onDelete, onView, featured = false }) {
   const [hovered, setHovered] = useState(false)
   const coverUrl = book.cover_url ? imgUrl(book.cover_url) : null
   const accent = book.theme_color || '#c9a84c'
@@ -209,7 +218,7 @@ function BookCard({ book, isEditMode, onEdit, onDelete, onView, featured = false
       </div>
     </div>
   )
-}
+}) // end BookCard memo
 
 function BuyLink({ href, children, secondary, accent }) {
   const [hovered, setHovered] = useState(false)
@@ -233,6 +242,7 @@ function BuyLink({ href, children, secondary, accent }) {
     </a>
   )
 }
+
 
 // ─── Section headers ──────────────────────────────────────────────────────────
 function SectionHeader({ eyebrow, title, subtitle }) {
@@ -319,18 +329,26 @@ export default function AuthorPage({ onModeChange }) {
     reload()
   }
 
-  const newRelease = books.find(b => b.new_release)
-  const featured    = books.filter(b => b.featured)           // all featured books, shown in slideshow
-  const comingSoon  = books.filter(b => b.coming_soon)
-  const allTypes    = [...new Set(books.filter(b => !b.coming_soon).map(b => b.book_type).filter(Boolean))]
-  const allGenres   = [...new Set(books.map(b => b.genre).filter(Boolean))]
-  const filtered    = books.filter(b => {
-    if (b.coming_soon) return false  // don't show coming soon in All Works
-    if (search && !b.title.toLowerCase().includes(search.toLowerCase()) && !(b.description || '').toLowerCase().includes(search.toLowerCase())) return false
+  const newRelease = useMemo(() => books.find(b => b.new_release), [books])
+  const featured   = useMemo(() => books.filter(b => b.featured), [books])
+  const comingSoon = useMemo(() => books.filter(b => b.coming_soon), [books])
+  const allTypes  = useMemo(() => [...new Set(books.filter(b => !b.coming_soon).map(b => b.book_type).filter(Boolean))], [books])
+  const allGenres = useMemo(() => [...new Set(books.map(b => b.genre).filter(Boolean))], [books])
+
+  // Debounce search so typing doesn't re-filter on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 180)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const filtered  = useMemo(() => books.filter(b => {
+    if (b.coming_soon) return false
+    if (debouncedSearch && !b.title.toLowerCase().includes(debouncedSearch.toLowerCase()) && !(b.description || '').toLowerCase().includes(debouncedSearch.toLowerCase())) return false
     if (filterType && b.book_type !== filterType) return false
     if (filterGenre && b.genre !== filterGenre) return false
     return true
-  })
+  }), [books, debouncedSearch, filterType, filterGenre])
 
   // ── Book detail page ────────────────────────────────────────────────────────
   if (viewingBook) {
@@ -343,11 +361,11 @@ export default function AuthorPage({ onModeChange }) {
   }
 
   // ── Hero accent derived from new release theme colour ───────────────────────
-  const heroAccent     = newRelease?.theme_color || '#c9a84c'
-  const heroAccentLight = isLight(heroAccent)
-  const heroBg = newRelease?.theme_color
+  const heroAccent      = useMemo(() => newRelease?.theme_color || '#c9a84c', [newRelease?.theme_color])
+  const heroAccentLight = useMemo(() => isLight(heroAccent), [heroAccent])
+  const heroBg = useMemo(() => newRelease?.theme_color
     ? `linear-gradient(160deg, ${darken(heroAccent, 0.72)} 0%, ${darken(heroAccent, 0.52)} 50%, #1a1410 100%)`
-    : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)'
+    : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)', [heroAccent, newRelease?.theme_color])
 
   const sectionPadding = { padding: '96px 48px' }
   const innerMax = { maxWidth: 1080, margin: '0 auto' }
@@ -1263,7 +1281,7 @@ function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView 
 
 // ── ComingSoonCard ─────────────────────────────────────────────────────────────
 // Horizontal cinematic card: full-height cover on left, rich info on right
-function ComingSoonCard({ book, index, isEditMode, onView, onEdit, onDelete }) {
+const ComingSoonCard = memo(function ComingSoonCard({ book, index, isEditMode, onView, onEdit, onDelete }) {
   const [hovered, setHovered] = useState(false)
   const accent = book.theme_color || '#c9a84c'
   const cover  = book.cover_url ? imgUrl(book.cover_url) : null
@@ -1384,4 +1402,4 @@ function ComingSoonCard({ book, index, isEditMode, onView, onEdit, onDelete }) {
       </div>
     </div>
   )
-}
+}) // end ComingSoonCard memo

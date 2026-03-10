@@ -87,7 +87,7 @@ export default function NewReleaseModal({ books, currentNewReleaseId, onSave, on
           </div>
 
           {/* Books */}
-          {books.map(book => {
+          {books.filter(b => !b.coming_soon).map(book => {
             const accent = book.theme_color || '#c9a84c'
             const coverSrc = book.cover_url ? imgUrl(book.cover_url) : null
             const isSelected = selected === book.id

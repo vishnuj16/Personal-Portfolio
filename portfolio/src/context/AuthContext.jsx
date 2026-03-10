@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 
 const AuthContext = createContext(null)
 
@@ -17,32 +17,44 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // Called by LoginModal after a successful passkey verify
-  const login = (token, name) => {
+  const login = useCallback((token, name) => {
     localStorage.setItem('admin_token', token)
     localStorage.setItem('admin_name', name || '')
     setIsAdmin(true)
     setAdminName(name || '')
-    setIsEditMode(true)   // go straight into edit mode on login
+    setIsEditMode(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_name')
     setIsAdmin(false)
     setIsEditMode(false)
     setAdminName('')
-  }
+  }, [])
 
-  const toggleEditMode = () => setIsEditMode(prev => {
-    const next = !prev
-    if (next) window.scrollTo({ top: 0, behavior: 'smooth' })
-    return next
-  })
+  const toggleEditMode = useCallback(() => {
+    setIsEditMode(prev => {
+      const next = !prev
+      if (next) window.scrollTo({ top: 0, behavior: 'smooth' })
+      return next
+    })
+  }, [])
+
+  // Memoize the context value so consumers only re-render when these values actually change,
+  // not on every AuthProvider render
+  const value = useMemo(() => ({
+    isAdmin,
+    isEditMode,
+    adminName,
+    login,
+    logout,
+    toggleEditMode,
+  }), [isAdmin, isEditMode, adminName, login, logout, toggleEditMode])
 
   return (
-    <AuthContext.Provider value={{ isAdmin, isEditMode, adminName, login, logout, toggleEditMode }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )
