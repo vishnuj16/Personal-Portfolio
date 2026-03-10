@@ -4,69 +4,163 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"portfolio-backend/internal/database"
 	"portfolio-backend/internal/models"
+
+	"github.com/gin-gonic/gin"
 )
 
 // ─── Profile (singleton row) ─────────────────────────────────────────────────
 
-// GET /api/profile
+// ── GET /api/profile ──────────────────────────────────────────────────────────
+// Returns the single profile row (id=1). Creates it if it doesn't exist yet.
 func GetProfile(c *gin.Context) {
-	var p models.Profile
-	err := database.DB.QueryRow(`
-		SELECT id, name, tagline, bio, avatar_url, resume_url, email,
-		       github_url, linkedin_url, twitter_url, website_url, location, available, updated_at
-		FROM profile WHERE id=1`).
-		Scan(&p.ID, &p.Name, &p.Tagline, &p.Bio, &p.AvatarURL, &p.ResumeURL,
-			&p.Email, &p.GithubURL, &p.LinkedinURL, &p.TwitterURL,
-			&p.WebsiteURL, &p.Location, &p.Available, &p.UpdatedAt)
+	p, err := fetchProfile()
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, p)
 }
 
-// PATCH /api/admin/profile
+// ── PATCH /api/admin/profile ──────────────────────────────────────────────────
+// Accepts a partial JSON body and updates only the supplied fields.
+// Callers MUST send only the keys they own (dev fields or author fields)
+// to avoid cross-mode overwrites.
 func UpdateProfile(c *gin.Context) {
-	var body struct {
-		Name        *string `json:"name"`
-		Tagline     *string `json:"tagline"`
-		Bio         *string `json:"bio"`
-		AvatarURL   *string `json:"avatar_url"`
-		ResumeURL   *string `json:"resume_url"`
-		Email       *string `json:"email"`
-		GithubURL   *string `json:"github_url"`
-		LinkedinURL *string `json:"linkedin_url"`
-		TwitterURL  *string `json:"twitter_url"`
-		WebsiteURL  *string `json:"website_url"`
-		Location    *string `json:"location"`
-		Available   *bool   `json:"available"`
-	}
+	// Decode into a plain map so we only touch supplied keys
+	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	fields := map[string]interface{}{}
-	if body.Name != nil        { fields["name"] = *body.Name }
-	if body.Tagline != nil     { fields["tagline"] = *body.Tagline }
-	if body.Bio != nil         { fields["bio"] = *body.Bio }
-	if body.AvatarURL != nil   { fields["avatar_url"] = *body.AvatarURL }
-	if body.ResumeURL != nil   { fields["resume_url"] = *body.ResumeURL }
-	if body.Email != nil       { fields["email"] = *body.Email }
-	if body.GithubURL != nil   { fields["github_url"] = *body.GithubURL }
-	if body.LinkedinURL != nil { fields["linkedin_url"] = *body.LinkedinURL }
-	if body.TwitterURL != nil  { fields["twitter_url"] = *body.TwitterURL }
-	if body.WebsiteURL != nil  { fields["website_url"] = *body.WebsiteURL }
-	if body.Location != nil    { fields["location"] = *body.Location }
-	if body.Available != nil   { fields["available"] = *body.Available }
-
-	for col, val := range fields {
-		database.DB.Exec(`UPDATE profile SET `+col+`=?, updated_at=CURRENT_TIMESTAMP WHERE id=1`, val)
+	if len(body) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields supplied"})
+		return
 	}
-	c.JSON(http.StatusOK, gin.H{"updated": true})
+
+	// Allowed columns — guards against injection; maps JSON key → column name
+	allowed := map[string]string{
+		"name":           "name",
+		"tagline":        "tagline",
+		"bio":            "bio",
+		"dev_bio":        "dev_bio",
+		"author_bio":     "author_bio",
+		"avatar_url":     "avatar_url",
+		"resume_url":     "resume_url",
+		"email":          "email",
+		"phone":          "phone",
+		"github_url":     "github_url",
+		"linkedin_url":   "linkedin_url",
+		"twitter_url":    "twitter_url",
+		"website_url":    "website_url",
+		"location":       "location",
+		"available":      "available",
+		"author_tagline": "author_tagline",
+	}
+
+	setClauses := ""
+	args := []interface{}{}
+
+	for jsonKey, col := range allowed {
+		val, ok := body[jsonKey]
+		if !ok {
+			continue
+		}
+		if setClauses != "" {
+			setClauses += ", "
+		}
+		setClauses += col + " = ?"
+		// Convert bool available → int for SQLite
+		if jsonKey == "available" {
+			switch v := val.(type) {
+			case bool:
+				if v {
+					args = append(args, 1)
+				} else {
+					args = append(args, 0)
+				}
+			default:
+				args = append(args, val)
+			}
+		} else {
+			args = append(args, val)
+		}
+	}
+
+	if setClauses == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no recognised fields supplied"})
+		return
+	}
+
+	setClauses += ", updated_at = CURRENT_TIMESTAMP"
+
+	// Upsert: insert a row if none exists, then update
+	_, err := database.DB.Exec(`INSERT OR IGNORE INTO profile (id) VALUES (1)`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	args = append(args, 1) // WHERE id = 1
+	_, err = database.DB.Exec(
+		`UPDATE profile SET `+setClauses+` WHERE id = ?`,
+		args...,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Return the updated profile
+	p, err := fetchProfile()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, p)
+}
+
+// ── fetchProfile ──────────────────────────────────────────────────────────────
+func fetchProfile() (*models.Profile, error) {
+	// Ensure the row exists
+	_, err := database.DB.Exec(`INSERT OR IGNORE INTO profile (id) VALUES (1)`)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &models.Profile{}
+	err = database.DB.QueryRow(`
+		SELECT
+			id, name, tagline, bio, dev_bio, author_bio,
+			avatar_url, resume_url, email, phone,
+			github_url, linkedin_url, twitter_url, website_url,
+			location, available, author_tagline, updated_at
+		FROM profile WHERE id = 1
+	`).Scan(
+		&p.ID,
+		&p.Name,
+		&p.Tagline,
+		&p.Bio,
+		&p.DevBio,
+		&p.AuthorBio,
+		&p.AvatarURL,
+		&p.ResumeURL,
+		&p.Email,
+		&p.Phone,
+		&p.GithubURL,
+		&p.LinkedinURL,
+		&p.TwitterURL,
+		&p.WebsiteURL,
+		&p.Location,
+		&p.Available,
+		&p.AuthorTagline,
+		&p.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // ─── Experience ──────────────────────────────────────────────────────────────
@@ -143,15 +237,33 @@ func UpdateExperience(c *gin.Context) {
 	c.ShouldBindJSON(&body)
 
 	fields := map[string]interface{}{}
-	if body.Company != nil     { fields["company"] = *body.Company }
-	if body.Role != nil        { fields["role"] = *body.Role }
-	if body.Description != nil { fields["description"] = *body.Description }
-	if body.LogoURL != nil     { fields["logo_url"] = *body.LogoURL }
-	if body.CompanyURL != nil  { fields["company_url"] = *body.CompanyURL }
-	if body.StartedAt != nil   { fields["started_at"] = *body.StartedAt }
-	if body.EndedAt != nil     { fields["ended_at"] = *body.EndedAt }
-	if body.Current != nil     { fields["current"] = *body.Current }
-	if body.SortOrder != nil   { fields["sort_order"] = *body.SortOrder }
+	if body.Company != nil {
+		fields["company"] = *body.Company
+	}
+	if body.Role != nil {
+		fields["role"] = *body.Role
+	}
+	if body.Description != nil {
+		fields["description"] = *body.Description
+	}
+	if body.LogoURL != nil {
+		fields["logo_url"] = *body.LogoURL
+	}
+	if body.CompanyURL != nil {
+		fields["company_url"] = *body.CompanyURL
+	}
+	if body.StartedAt != nil {
+		fields["started_at"] = *body.StartedAt
+	}
+	if body.EndedAt != nil {
+		fields["ended_at"] = *body.EndedAt
+	}
+	if body.Current != nil {
+		fields["current"] = *body.Current
+	}
+	if body.SortOrder != nil {
+		fields["sort_order"] = *body.SortOrder
+	}
 
 	for col, val := range fields {
 		database.DB.Exec(`UPDATE experiences SET `+col+`=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, val, id)
@@ -228,12 +340,24 @@ func UpdateEducation(c *gin.Context) {
 	}
 	c.ShouldBindJSON(&body)
 	fields := map[string]interface{}{}
-	if body.Institution != nil { fields["institution"] = *body.Institution }
-	if body.Degree != nil      { fields["degree"] = *body.Degree }
-	if body.Field != nil       { fields["field"] = *body.Field }
-	if body.LogoURL != nil     { fields["logo_url"] = *body.LogoURL }
-	if body.StartedAt != nil   { fields["started_at"] = *body.StartedAt }
-	if body.EndedAt != nil     { fields["ended_at"] = *body.EndedAt }
+	if body.Institution != nil {
+		fields["institution"] = *body.Institution
+	}
+	if body.Degree != nil {
+		fields["degree"] = *body.Degree
+	}
+	if body.Field != nil {
+		fields["field"] = *body.Field
+	}
+	if body.LogoURL != nil {
+		fields["logo_url"] = *body.LogoURL
+	}
+	if body.StartedAt != nil {
+		fields["started_at"] = *body.StartedAt
+	}
+	if body.EndedAt != nil {
+		fields["ended_at"] = *body.EndedAt
+	}
 	for col, val := range fields {
 		database.DB.Exec(`UPDATE education SET `+col+`=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, val, id)
 	}

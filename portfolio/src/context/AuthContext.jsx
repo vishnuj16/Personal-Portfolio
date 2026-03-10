@@ -24,6 +24,7 @@ export function AuthProvider({ children }) {
     setIsAdmin(true)
     setAdminName(name || '')
     setIsEditMode(true)   // go straight into edit mode on login
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const logout = () => {
@@ -34,7 +35,11 @@ export function AuthProvider({ children }) {
     setAdminName('')
   }
 
-  const toggleEditMode = () => setIsEditMode(prev => !prev)
+  const toggleEditMode = () => setIsEditMode(prev => {
+    const next = !prev
+    if (next) window.scrollTo({ top: 0, behavior: 'smooth' })
+    return next
+  })
 
   return (
     <AuthContext.Provider value={{ isAdmin, isEditMode, adminName, login, logout, toggleEditMode }}>

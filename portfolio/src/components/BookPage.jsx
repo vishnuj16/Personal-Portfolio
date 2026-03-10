@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getBook, imgUrl } from '../api'
+import { renderRichText, stripToPlain } from './RichText'
 
 // ── Colour utilities ───────────────────────────────────────────────────────────
 function hexToRgb(hex) {
@@ -198,11 +199,16 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
   const coverSrc  = book.cover_url ? imgUrl(book.cover_url) : null
   const lightAccent = isLight(accent)
 
+  // ── Coming Soon / WIP page ─────────────────────────────────────────────────
+  if (book.coming_soon) {
+    return <ComingSoonBookPage book={book} accent={accent} coverSrc={coverSrc} lightAccent={lightAccent} onBack={onBack} />
+  }
+
   // Hero colours — always dark bg with accent tints
   const heroBg = `linear-gradient(160deg, ${darken(accent, 0.72)} 0%, ${darken(accent, 0.55)} 50%, #1a1410 100%)`
 
-  const descWords = (book.description || '').split(' ')
-  const shortDesc = descWords.length > 60 ? descWords.slice(0, 60).join(' ') + '…' : book.description
+  const descWords = stripToPlain(book.description || '').split(' ')
+  const shortDesc = descWords.length > 60 ? descWords.slice(0, 60).join(' ') + '…' : stripToPlain(book.description)
   const isLong = descWords.length > 60
 
   return (
@@ -295,13 +301,16 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
             {/* Description */}
             {book.description && (
               <div style={{ marginBottom: 36 }}>
-                <p style={{
+                <div style={{
                   fontFamily: "'Lora', Georgia, serif",
                   fontSize: '0.97rem', color: 'rgba(245,240,232,0.68)',
-                  lineHeight: 1.85, margin: 0, maxWidth: 520,
+                  lineHeight: 1.85, maxWidth: 520,
                 }}>
-                  {descExpanded ? book.description : shortDesc}
-                </p>
+                  {descExpanded
+                    ? renderRichText(book.description, { color: 'rgba(245,240,232,0.68)', headingColor: 'rgba(245,240,232,0.9)', accentColor: accent, lineHeight: 1.85, fontSize: '0.97rem', fontFamily: "'Lora', Georgia, serif" })
+                    : <p style={{ margin: 0, fontFamily: "'Lora', Georgia, serif", fontSize: '0.97rem', color: 'rgba(245,240,232,0.68)', lineHeight: 1.85 }}>{shortDesc}</p>
+                  }
+                </div>
                 {isLong && (
                   <button onClick={() => setDescExpanded(v => !v)} style={{
                     marginTop: 10, background: 'transparent', border: 'none', padding: 0,
@@ -416,9 +425,11 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
               color: '#6b5c45', lineHeight: 1.95,
               borderLeft: `3px solid ${rgba(accent, 0.35)}`, paddingLeft: 28,
             }}>
-              {book.description.split('\n').map((para, i) => (
-                <p key={i} style={{ margin: i === 0 ? 0 : '18px 0 0' }}>{para}</p>
-              ))}
+              {renderRichText(book.description, {
+                fontFamily: "'Lora', Georgia, serif", fontSize: '1.02rem',
+                color: '#6b5c45', lineHeight: 1.95,
+                headingColor: '#3d2e1a', accentColor: accent,
+              })}
             </div>
           )}
         </div>
@@ -536,6 +547,188 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
           from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+      `}</style>
+    </div>
+  )
+}
+
+// ── ComingSoonBookPage ─────────────────────────────────────────────────────────
+// A beautiful, dark, atmospheric page for upcoming / WIP books.
+function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
+  const heroBg = `linear-gradient(160deg, ${darken(accent, 0.78)} 0%, ${darken(accent, 0.62)} 60%, #0e0b06 100%)`
+
+  return (
+    <div style={{ fontFamily: "'Lora', Georgia, serif", background: '#0e0b06', color: '#f5f0e8', minHeight: '100vh' }}>
+
+      {/* Back button */}
+      {onBack && (
+        <button onClick={onBack} style={{
+          position: 'fixed', top: 24, left: 28, zIndex: 100,
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '8px 16px', borderRadius: 8,
+          background: 'rgba(14,11,6,0.7)', backdropFilter: 'blur(10px)',
+          border: `1px solid ${rgba(accent, 0.25)}`,
+          fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic',
+          color: rgba(accent, 0.75), cursor: 'pointer', transition: 'all 0.2s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = rgba(accent, 0.6); e.currentTarget.style.color = accent }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = rgba(accent, 0.25); e.currentTarget.style.color = rgba(accent, 0.75) }}>
+          ← Back
+        </button>
+      )}
+
+      {/* Hero */}
+      <section style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', background: heroBg }}>
+        {/* Background glow orbs */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.035, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Crect width='1' height='1' fill='%23c9a84c'/%3E%3C/svg%3E")`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '20%', left: '15%', width: 700, height: 700, background: `radial-gradient(circle, ${rgba(accent, 0.12)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-10%', right: '5%', width: 500, height: 500, background: `radial-gradient(circle, ${rgba(accent, 0.08)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
+
+        {/* Animated corner decorations */}
+        {[
+          { top: 24, left: 24 }, { top: 24, right: 24 },
+          { bottom: 24, left: 24 }, { bottom: 24, right: 24 },
+        ].map((pos, i) => {
+          const isRight = 'right' in pos, isBottom = 'bottom' in pos
+          return (
+            <div key={i} style={{ position: 'absolute', width: 50, height: 50, pointerEvents: 'none', zIndex: 5, ...pos }}>
+              <div style={{ position: 'absolute', [isBottom ? 'bottom' : 'top']: 0, [isRight ? 'right' : 'left']: 0, width: '100%', height: 1.5, background: `linear-gradient(${isRight ? 'to left' : 'to right'}, ${accent}, transparent)`, animation: `borderGlow 3.5s ease-in-out infinite ${i * 0.4}s` }} />
+              <div style={{ position: 'absolute', [isBottom ? 'bottom' : 'top']: 0, [isRight ? 'right' : 'left']: 0, width: 1.5, height: '100%', background: `linear-gradient(${isBottom ? 'to top' : 'to bottom'}, ${accent}, transparent)`, animation: `borderGlow 3.5s ease-in-out infinite ${i * 0.4}s` }} />
+              <div style={{ position: 'absolute', [isBottom ? 'bottom' : 'top']: 3, [isRight ? 'right' : 'left']: 3, width: 5, height: 5, borderRadius: '50%', background: accent, boxShadow: `0 0 8px ${rgba(accent, 0.8)}`, animation: `gemPulse 2.5s ease-in-out infinite ${i * 0.5}s` }} />
+            </div>
+          )
+        })}
+
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 48px 80px', width: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: coverSrc ? '1fr 1fr' : '1fr', gap: 72, alignItems: 'center' }}>
+
+            {/* Text side */}
+            <div style={{ animation: 'fadeInUp 0.8s ease' }}>
+              {/* WIP badge */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 24, background: rgba(accent, 0.12), border: `1px solid ${rgba(accent, 0.35)}`, marginBottom: 24 }}>
+                <span style={{ fontSize: '0.8rem' }}>✍️</span>
+                <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: accent, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Work in Progress</span>
+              </div>
+
+              {/* Title */}
+              <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2.2rem, 5vw, 3.8rem)', color: '#f5f0e8', fontWeight: 900, lineHeight: 1.08, margin: '0 0 14px', textShadow: `0 2px 30px ${rgba(accent, 0.25)}` }}>
+                {book.title}
+              </h1>
+              {book.subtitle && (
+                <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '1.1rem', color: 'rgba(245,240,232,0.55)', marginBottom: 28, lineHeight: 1.5 }}>{book.subtitle}</div>
+              )}
+
+              {/* Divider */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+                <div style={{ width: 36, height: 2, background: accent, borderRadius: 1 }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', border: `2px solid ${rgba(accent, 0.6)}` }} />
+                <div style={{ width: 18, height: 2, background: rgba(accent, 0.4), borderRadius: 1 }} />
+              </div>
+
+              {/* Description */}
+              {book.description && (
+                <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '1rem', color: 'rgba(245,240,232,0.65)', lineHeight: 1.9, marginBottom: 36, maxWidth: 460 }}>
+                  {renderRichText(book.description, {
+                    color: 'rgba(245,240,232,0.65)',
+                    headingColor: '#f5f0e8',
+                    accentColor: accent,
+                    lineHeight: 1.9,
+                    fontSize: '1rem',
+                    fontFamily: "'Lora', Georgia, serif",
+                    fontStyle: 'italic',
+                  })}
+                </div>
+              )}
+
+              {/* Genre + estimated chips */}
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                {book.genre && (
+                  <div style={{ borderLeft: `2px solid ${rgba(accent, 0.5)}`, paddingLeft: 12 }}>
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: '0.55rem', color: rgba(accent, 0.6), letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 3 }}>genre</div>
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: '0.82rem', color: 'rgba(245,240,232,0.75)', fontStyle: 'italic' }}>{book.genre}</div>
+                  </div>
+                )}
+                {book.estimated_release && (
+                  <div style={{ borderLeft: `2px solid ${rgba(accent, 0.5)}`, paddingLeft: 12 }}>
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: '0.55rem', color: rgba(accent, 0.6), letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 3 }}>expected</div>
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: '0.82rem', color: accent, fontWeight: 600 }}>{book.estimated_release}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cover side */}
+            {coverSrc && (
+              <div style={{ display: 'flex', justifyContent: 'center', animation: 'fadeInUp 0.8s ease 0.15s both' }}>
+                <div style={{ position: 'relative' }}>
+                  {/* Glow behind cover */}
+                  <div style={{ position: 'absolute', inset: -20, background: `radial-gradient(ellipse, ${rgba(accent, 0.25)} 0%, transparent 70%)`, borderRadius: 20, pointerEvents: 'none' }} />
+                  <img src={coverSrc} alt={book.title} style={{
+                    maxHeight: 480, maxWidth: 340,
+                    borderRadius: 10, display: 'block',
+                    position: 'relative',
+                    boxShadow: `0 28px 80px rgba(0,0,0,0.6), 0 4px 20px ${rgba(accent, 0.3)}`,
+                    transform: 'perspective(700px) rotateY(-4deg)',
+                    transition: 'transform 0.4s ease',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'perspective(700px) rotateY(0deg) scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'perspective(700px) rotateY(-4deg)'}
+                  />
+                  {/* WIP stamp overlay */}
+                  <div style={{
+                    position: 'absolute', bottom: 20, right: -12,
+                    background: rgba(accent, 0.92), color: darken(accent, 0.7),
+                    fontFamily: "'Playfair Display', serif", fontWeight: 900,
+                    fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase',
+                    padding: '5px 14px', borderRadius: 4,
+                    transform: 'rotate(-2deg)',
+                    boxShadow: `0 4px 16px ${rgba(accent, 0.4)}`,
+                  }}>Coming Soon</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Scroll hint */}
+        {book.description && book.description.length > 200 && (
+          <div style={{ position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, animation: 'fadeInUp 1s ease 1s both' }}>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', letterSpacing: '0.15em', color: rgba(accent, 0.4), textTransform: 'uppercase' }}>scroll</div>
+            <div style={{ width: 1, height: 36, background: `linear-gradient(to bottom, ${rgba(accent, 0.45)}, transparent)` }} />
+          </div>
+        )}
+      </section>
+
+      {/* ── Watch This Space section ───────────────────────────────────────── */}
+      <section style={{ padding: '96px 48px', background: 'linear-gradient(180deg, #0e0b06 0%, #1a1208 50%, #0e0b06 100%)' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
+          {/* Ornamental heading */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 10 }}>
+            <div style={{ flex: 1, maxWidth: 80, height: 1, background: `linear-gradient(to right, transparent, ${rgba(accent, 0.4)})` }} />
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', color: rgba(accent, 0.55), letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>Watch This Space</span>
+            <div style={{ flex: 1, maxWidth: 80, height: 1, background: `linear-gradient(to left, transparent, ${rgba(accent, 0.4)})` }} />
+          </div>
+
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.65rem', color: rgba(accent, 0.3), letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 24 }}>·&nbsp;&nbsp;·&nbsp;&nbsp;·</div>
+
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.05rem', color: 'rgba(245,240,232,0.38)', lineHeight: 2, margin: 0 }}>
+            This story is still being written. Check back for updates,
+            {book.estimated_release ? ` or look for it ${book.estimated_release}.` : ' or follow along as it takes shape.'}
+          </p>
+
+          {/* Decorative dot row */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 48 }}>
+            {[0,1,2,3,4].map(i => (
+              <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', background: rgba(accent, 0.15 + i * 0.06) }} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <style>{`
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes borderGlow { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
+        @keyframes gemPulse { 0%,100% { transform:scale(1); opacity:0.6; } 50% { transform:scale(1.6); opacity:1; } }
       `}</style>
     </div>
   )

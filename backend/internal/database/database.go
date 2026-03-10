@@ -87,6 +87,8 @@ func migrate() {
 		name         TEXT,
 		tagline      TEXT,
 		bio          TEXT,
+		dev_bio      TEXT,
+		author_bio   TEXT,
 		avatar_url   TEXT,
 		resume_url   TEXT,
 		email        TEXT,
@@ -174,6 +176,8 @@ func migrate() {
 	columnMigrations := []string{
 		"ALTER TABLE profile ADD COLUMN phone TEXT",
 		"ALTER TABLE profile ADD COLUMN author_tagline TEXT",
+		"ALTER TABLE profile ADD COLUMN dev_bio TEXT",
+		"ALTER TABLE profile ADD COLUMN author_bio TEXT",
 		"ALTER TABLE books ADD COLUMN theme_color TEXT",
 		"ALTER TABLE books ADD COLUMN coming_soon INTEGER DEFAULT 0",
 		"ALTER TABLE books ADD COLUMN estimated_release TEXT",

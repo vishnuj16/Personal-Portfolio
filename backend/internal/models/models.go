@@ -59,6 +59,8 @@ type Profile struct {
 	Name          *string   `json:"name"`
 	Tagline       *string   `json:"tagline"`
 	Bio           *string   `json:"bio"`
+	DevBio        *string   `json:"dev_bio"`
+	AuthorBio     *string   `json:"author_bio"`
 	AvatarURL     *string   `json:"avatar_url"`
 	ResumeURL     *string   `json:"resume_url"`
 	Email         *string   `json:"email"`

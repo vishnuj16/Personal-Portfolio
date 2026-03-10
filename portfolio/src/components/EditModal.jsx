@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAuth } from '../context/AuthContext'
 import { createSkill, uploadFile, deleteFile, imgUrl } from '../api'
 
 // ─── Image Upload Field ────────────────────────────────────────────────────
@@ -416,12 +415,9 @@ export default function EditModal({
   title, fields, initialValues = {}, onSave, onClose, onDelete,
   skillCategories = [], onSkillCreated,
 }) {
-  const { setModalOpen } = useAuth()
   const [values, setValues] = useState(initialValues)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  useEffect(() => { setModalOpen(true); return () => setModalOpen(false) }, [])
 
   const set = (key, val) => setValues(v => ({ ...v, [key]: val }))
 

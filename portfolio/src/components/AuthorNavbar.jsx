@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import ModeSelector from './ModeSelector'
 
 const authorNavLinks = [
-  { label: 'Books',     href: '#author-books' },
-  { label: 'Featured',  href: '#author-featured' },
-  { label: 'About',     href: '#author-about' },
-  { label: 'Contact',   href: '#author-contact' },
+  { label: 'Books',    href: '#author-all-books' },
+  { label: 'Featured', href: '#author-featured' },
+  { label: 'Upcoming', href: '#author-coming-soon' },
+  { label: 'About',    href: '#author-about' },
+  { label: 'Contact',  href: '#author-contact' },
 ]
 
 export default function AuthorNavbar({ adminOffset, currentMode = 'author', onModeChange, authorName }) {
@@ -77,19 +78,27 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
           {/* ── Nav links ── */}
           <div style={{ display: 'flex', gap: '36px', alignItems: 'center' }}>
             {authorNavLinks.map(link => (
-              <a key={link.label} href={link.href} style={{
-                fontFamily: "'Lora', Georgia, serif",
-                fontSize: '0.88rem',
-                color: scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-                letterSpacing: '0.02em',
-              }}
-              onMouseEnter={e => e.target.style.color = scrolled ? '#c9a84c' : '#f5f0e8'}
-              onMouseLeave={e => e.target.style.color = scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
+              <button key={link.label}
+                onClick={() => {
+                  const id = link.href.replace('#', '')
+                  const el = document.getElementById(id)
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                style={{
+                  fontFamily: "'Lora', Georgia, serif",
+                  fontSize: '0.88rem',
+                  color: scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)',
+                  textDecoration: 'none',
+                  background: 'none', border: 'none', padding: 0,
+                  transition: 'color 0.2s',
+                  letterSpacing: '0.02em',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => e.target.style.color = scrolled ? '#c9a84c' : '#f5f0e8'}
+                onMouseLeave={e => e.target.style.color = scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
               >
                 {link.label}
-              </a>
+              </button>
             ))}
           </div>
         </div>

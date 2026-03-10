@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getBooks, getProfile, updateProfile, deleteBook, imgUrl, setFeaturedBooks, setNewRelease } from '../api'
+import { getBooks, getProfile, updateProfile, deleteBook, imgUrl, uploadFile, setFeaturedBooks, setNewRelease } from '../api'
 import AuthorNavbar from './AuthorNavbar'
 import AuthorAdminBanner from './AuthorAdminBanner'
 import BookEditModal from './BookEditModal'
@@ -8,6 +8,7 @@ import LoginModal from './LoginModal'
 import BookPage from './BookPage'
 import FeaturedBooksModal from './FeaturedBooksModal'
 import NewReleaseModal from './NewReleaseModal'
+import { stripToPlain } from './RichText'
 
 // ─── Google Fonts (injected once) ────────────────────────────────────────────
 function injectFonts() {
@@ -399,6 +400,18 @@ export default function AuthorPage({ onModeChange }) {
           {newRelease ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
               <div style={{ animation: 'fadeInUp 0.8s ease' }}>
+                {/* Author pen name */}
+                <div style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: '1rem', fontWeight: 700,
+                  color: '#f5f0e8',
+                  letterSpacing: '0.22em', textTransform: 'uppercase',
+                  marginBottom: 14,
+                  opacity: 0.9,
+                  textShadow: `0 0 20px ${rgba(heroAccent, 0.4)}`,
+                }}>
+                  {profile?.name || 'Vishnu Vyas'}
+                </div>
                 <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.72rem', color: heroAccent, letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ width: 32, height: 1, background: heroAccent, opacity: 0.7, display: 'inline-block' }} />
                   Now Available
@@ -407,7 +420,7 @@ export default function AuthorPage({ onModeChange }) {
                   {newRelease.title}
                 </h1>
                 {newRelease.subtitle && <div style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.05rem', color: 'rgba(245,240,232,0.6)', marginBottom: 24, lineHeight: 1.5 }}>{newRelease.subtitle}</div>}
-                {newRelease.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.95rem', color: 'rgba(245,240,232,0.7)', lineHeight: 1.8, marginBottom: 36, maxWidth: 440 }}>{newRelease.description.slice(0, 220)}{newRelease.description.length > 220 ? '…' : ''}</p>}
+                {newRelease.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.95rem', color: 'rgba(245,240,232,0.7)', lineHeight: 1.8, marginBottom: 36, maxWidth: 440 }}>{stripToPlain(newRelease.description).slice(0, 220)}{stripToPlain(newRelease.description).length > 220 ? '…' : ''}</p>}
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
                   <button onClick={() => setViewingBook(newRelease)} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.9rem', fontWeight: 600, padding: '13px 32px', borderRadius: 8, background: heroAccent, color: heroAccentLight ? '#1a1410' : '#f5f0e8', border: 'none', cursor: 'pointer', boxShadow: `0 4px 20px ${rgba(heroAccent, 0.4)}`, transition: 'all 0.2s' }}
                     onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 32px ${rgba(heroAccent, 0.6)}` }}
@@ -452,7 +465,7 @@ export default function AuthorPage({ onModeChange }) {
             <div style={{ textAlign: 'center', animation: 'fadeInUp 0.8s ease' }}>
               <div style={{ fontFamily: "'Lora', serif", fontSize: '0.8rem', color: '#c9a84c', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>Author</div>
               <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2.8rem, 7vw, 5rem)', color: '#f5f0e8', fontWeight: 900, margin: '0 0 20px', lineHeight: 1.05, textShadow: '0 4px 40px rgba(201,168,76,0.2)' }}>
-                {profile?.name || 'The Author'}
+                {profile?.name || 'Vishnu Vyas'}
               </h1>
               <div style={{ width: 80, height: 1, background: 'rgba(201,168,76,0.4)', margin: '0 auto 24px' }} />
               <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.1rem', color: 'rgba(245,240,232,0.6)', maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.8 }}>
@@ -564,24 +577,41 @@ export default function AuthorPage({ onModeChange }) {
       <AuthorBioSection profile={profile} isEditMode={isEditMode} onUpdate={async (patch) => { await updateProfile(patch); setProfile(p => ({ ...p, ...patch })) }} />
 
       {/* ── COMING SOON ───────────────────────────────────────────────────── */}
-      <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} />
+      <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} onView={setViewingBook} />
 
       {/* ── CONTACT ───────────────────────────────────────────────────────── */}
       <section id="author-contact" style={{ ...sectionPadding, background: '#fdf8f0' }}>
-        <div style={{ ...innerMax, maxWidth: 600, textAlign: 'center' }}>
+        <div style={{ ...innerMax, maxWidth: 640, textAlign: 'center' }}>
           <SectionHeader eyebrow="Get in Touch" title="Letters Welcome" subtitle="For rights enquiries, readings, collaborations, or just to say hello — the door is always open." />
-          {profile?.email && (
-            <a href={`mailto:${profile.email}`} style={{ display: 'inline-block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.1rem', fontWeight: 600, color: '#c9a84c', textDecoration: 'none', borderBottom: '1px solid rgba(201,168,76,0.3)', paddingBottom: 3, transition: 'all 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = '#c9a84c'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'}>{profile.email}</a>
-          )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 8 }}>
+            {profile?.email && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </div>
+                <a href={`mailto:${profile.email}`} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.05rem', fontWeight: 600, color: '#c9a84c', textDecoration: 'none', borderBottom: '1px solid rgba(201,168,76,0.25)', paddingBottom: 2, transition: 'all 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#c9a84c'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(201,168,76,0.25)'}>{profile.email}</a>
+              </div>
+            )}
+            {profile?.phone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.4a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.58 16l.34.9z"/></svg>
+                </div>
+                <a href={`tel:${profile.phone}`} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.05rem', fontWeight: 600, color: '#c9a84c', textDecoration: 'none', borderBottom: '1px solid rgba(201,168,76,0.25)', paddingBottom: 2, transition: 'all 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#c9a84c'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(201,168,76,0.25)'}>{profile.phone}</a>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: '#1a1410' }}>
         <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', fontStyle: 'italic' }}>
-          © {new Date().getFullYear()} {profile?.name || 'Vishnu'} — All rights reserved
+          © {new Date().getFullYear()} {profile?.name || 'Vishnu Vyas'} — All rights reserved
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           {!isAdmin && (
@@ -707,7 +737,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
   // Empty state
   if (books.length === 0) {
     return (
-      <section style={{
+      <section id="author-featured" style={{
         background: 'linear-gradient(160deg, #fdf8f0 0%, #f5ede0 100%)',
         padding: '80px 48px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -724,13 +754,14 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
   }
 
   const book   = books[idx] || books[0]
-  const accent = book.theme_color || '#c9a84c'
-  const cover  = book.cover_url ? imgUrl(book.cover_url) : null
-  const desc   = book.description || ''
-  const shortDesc = desc.split(' ').slice(0, 36).join(' ') + (desc.split(' ').length > 36 ? '…' : '')
+  const accent    = book.theme_color || '#c9a84c'
+  const cover     = book.cover_url ? imgUrl(book.cover_url) : null
+  const desc      = book.description || ''
+  const plainDesc = stripToPlain(desc)
+  const shortDesc = plainDesc.split(' ').slice(0, 36).join(' ') + (plainDesc.split(' ').length > 36 ? '…' : '')
 
   return (
-    <section style={{
+    <section id="author-featured" style={{
       position: 'relative',
       background: 'linear-gradient(180deg, #fdf8f0 0%, #f5ede0 100%)',
       padding: '0',
@@ -866,9 +897,9 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
           {desc && (
             <div style={{ marginBottom: 28 }}>
               <p style={{ fontFamily: "'Lora', serif", fontSize: '0.95rem', color: '#6b5c45', lineHeight: 1.9, margin: 0, fontStyle: 'italic' }}>
-                {descOpen ? desc : shortDesc}
+                {descOpen ? plainDesc : shortDesc}
               </p>
-              {desc.split(' ').length > 36 && (
+              {plainDesc.split(' ').length > 36 && (
                 <button onClick={() => setDescOpen(v => !v)} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontFamily: "'Lora', serif", fontSize: '0.75rem', fontStyle: 'italic', color: rgba(accent, 0.8), cursor: 'pointer', borderBottom: `1px solid ${rgba(accent, 0.3)}` }}>
                   {descOpen ? 'show less' : 'read more'}
                 </button>
@@ -942,12 +973,12 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
   const [photoUp, setPhotoUp]     = useState(false)
   const [photoDrag, setPhotoDrag] = useState(false)
 
-  const startEdit = () => { setBioVal(profile?.bio || ''); setEditing(true) }
+  const startEdit = () => { setBioVal(profile?.author_bio || profile?.bio || ''); setEditing(true) }
   const cancel    = () => setEditing(false)
 
   const saveBio = async () => {
     setSaving(true)
-    await onUpdate({ bio: bioVal })
+    await onUpdate({ author_bio: bioVal })
     setSaving(false)
     setEditing(false)
   }
@@ -956,16 +987,15 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
     if (!file || !file.type.startsWith('image/')) return
     setPhotoUp(true)
     try {
-      // reuse the uploadFile helper; bucket "profile"
-      const { uploadFile } = await import('../api')
       const res = await uploadFile(file, 'profile')
       await onUpdate({ avatar_url: res.url })
     } catch(e) { alert('Photo upload failed: ' + e.message) }
     finally { setPhotoUp(false) }
   }
 
-  const bio    = profile?.bio || 'Writer. Storyteller. Builder of worlds.'
-  const name   = profile?.name || 'The Author'
+  const [photoHover, setPhotoHover] = useState(false)
+  const bio    = profile?.author_bio || profile?.bio || 'Writer. Storyteller. Builder of worlds.'
+  const name   = profile?.name || 'Vishnu Vyas'
   const avatar = profile?.avatar_url
 
   return (
@@ -1026,24 +1056,23 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
                   onDragOver={isEditMode ? (e => { e.preventDefault(); setPhotoDrag(true) }) : undefined}
                   onDragLeave={isEditMode ? (() => setPhotoDrag(false)) : undefined}
                   onDrop={isEditMode ? (e => { e.preventDefault(); setPhotoDrag(false); handlePhoto(e.dataTransfer.files?.[0]) }) : undefined}
-                  onClick={isEditMode ? (() => document.getElementById('author-photo-input')?.click()) : undefined}
+                  onClick={isEditMode && !avatar ? (() => document.getElementById('author-photo-input')?.click()) : undefined}
                   style={{
                     width: 240, height: 300,
                     borderRadius: 12,
                     overflow: 'hidden',
                     position: 'relative',
                     border: `2px solid rgba(201,168,76,${photoDrag ? '0.7' : '0.2'})`,
-                    cursor: isEditMode ? 'pointer' : 'default',
+                    cursor: isEditMode && !avatar ? 'pointer' : 'default',
                     transition: 'border-color 0.2s',
                     background: '#1a1006',
                   }}
                 >
                   {avatar ? (
                     <>
-                      <img src={avatar.startsWith('http') ? avatar : `/api/uploads/${avatar.replace(/^\/+/, '')}`}
+                      <img src={imgUrl(avatar)}
                         alt={name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        onError={e => { e.target.style.display = 'none' }}
                       />
                       {/* Subtle vignette overlay */}
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(26,16,6,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
@@ -1056,14 +1085,21 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
                       </div>
                     </div>
                   )}
-                  {isEditMode && avatar && (
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,16,6,0)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(26,16,6,0.55)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(26,16,6,0)'}
+                {isEditMode && avatar && (
+                    <div
+                      onMouseEnter={() => setPhotoHover(true)}
+                      onMouseLeave={() => setPhotoHover(false)}
+                      style={{
+                        position: 'absolute', inset: 0,
+                        background: photoHover ? 'rgba(26,16,6,0.55)' : 'rgba(26,16,6,0)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'background 0.2s', cursor: 'pointer',
+                      }}
+                      onClick={() => document.getElementById('author-photo-input')?.click()}
                     >
-                      <div style={{ opacity: 0, transition: 'opacity 0.2s', fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#c9a84c', textAlign: 'center', pointerEvents: 'none' }}
-                        ref={el => el && el.closest('div')?.addEventListener('mouseenter', () => el.style.opacity = '1') && el.closest('div')?.addEventListener('mouseleave', () => el.style.opacity = '0')}
-                      >Change photo</div>
+                      <span style={{ opacity: photoHover ? 1 : 0, transition: 'opacity 0.2s', fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#c9a84c', textAlign: 'center', pointerEvents: 'none' }}>
+                        Change photo
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1164,130 +1200,188 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
   )
 }
 
+
 // ── ComingSoonSection ─────────────────────────────────────────────────────────
-function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete }) {
+function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView }) {
   if (books.length === 0 && !isEditMode) return null
 
   return (
     <section id="author-coming-soon" style={{
       position: 'relative', overflow: 'hidden',
-      background: 'linear-gradient(180deg, #f5ede0 0%, #fdf8f0 100%)',
+      background: 'linear-gradient(180deg, #1a1006 0%, #22160a 50%, #1a1006 100%)',
       padding: '100px 48px',
-      borderTop: '1px solid rgba(201,168,76,0.12)',
     }}>
-      {/* Decorative ink-drop background marks */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.3), transparent)', pointerEvents: 'none' }} />
+      {/* Subtle dot-grid background */}
+      <div style={{ position: 'absolute', inset: 0, opacity: 0.03, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Ccircle cx='24' cy='24' r='1' fill='%23c9a84c'/%3E%3C/svg%3E")`, backgroundSize: '48px 48px', pointerEvents: 'none' }} />
+      {/* Gold glow orb */}
+      <div style={{ position: 'absolute', bottom: '-15%', left: '20%', width: 600, height: 600, background: 'radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
-      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-        {/* Section header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'end', marginBottom: 56 }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', position: 'relative' }}>
+
+        {/* Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'end', marginBottom: 64 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
               <div style={{ width: 28, height: 1, background: 'rgba(201,168,76,0.4)' }} />
-              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: '#c9a84c', letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>On the Horizon</span>
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.63rem', color: '#c9a84c', letterSpacing: '0.24em', textTransform: 'uppercase', fontStyle: 'italic' }}>On the Horizon</span>
             </div>
-            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.8rem)', fontWeight: 900, color: '#3d2e1a', margin: '0 0 10px', letterSpacing: '-0.01em' }}>Coming Soon</h2>
-            <p style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: '#9a8060', fontSize: '0.9rem', margin: 0 }}>
+            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.8rem)', fontWeight: 900, color: '#f5f0e8', margin: '0 0 10px', letterSpacing: '-0.01em', textShadow: '0 2px 20px rgba(201,168,76,0.1)' }}>Coming Soon</h2>
+            <p style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: 'rgba(245,240,232,0.4)', fontSize: '0.88rem', margin: 0 }}>
               Stories taking shape — watch this space.
             </p>
           </div>
           {isEditMode && (
-            <button onClick={onAdd} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              padding: '10px 20px', borderRadius: 8,
-              background: '#c9a84c', border: 'none',
-              fontFamily: "'Playfair Display', serif", fontSize: '0.82rem', fontWeight: 600,
-              color: '#1a1410', cursor: 'pointer',
-            }}>+ Add Upcoming</button>
+            <button onClick={onAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 8, background: '#c9a84c', border: 'none', fontFamily: "'Playfair Display', serif", fontSize: '0.82rem', fontWeight: 600, color: '#1a1410', cursor: 'pointer' }}>
+              + Add Upcoming
+            </button>
           )}
         </div>
 
         {books.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', border: '1px dashed rgba(201,168,76,0.12)', borderRadius: 16 }}>
             <div style={{ fontSize: '2rem', opacity: 0.2, marginBottom: 10 }}>✍️</div>
-            <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: '#b09070', fontSize: '0.9rem' }}>No upcoming works listed yet.</div>
+            <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: 'rgba(245,240,232,0.25)', fontSize: '0.9rem' }}>No upcoming works listed yet.</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 28 }}>
-            {books.map((book, i) => {
-              const accent = book.theme_color || '#c9a84c'
-              return (
-                <div key={book.id} style={{
-                  position: 'relative',
-                  background: '#fff9f2',
-                  border: `1px solid ${rgba(accent, 0.2)}`,
-                  borderRadius: 14,
-                  padding: '32px 28px',
-                  overflow: 'hidden',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  boxShadow: '0 2px 16px rgba(61,46,26,0.06)',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 40px rgba(61,46,26,0.1), 0 2px 12px ${rgba(accent, 0.12)}` }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(61,46,26,0.06)' }}
-                >
-                  {/* Top accent bar */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right, ${accent}, ${rgba(accent, 0.3)})`, borderRadius: '14px 14px 0 0' }} />
-
-                  {/* Index number */}
-                  <div style={{ position: 'absolute', top: 20, right: 20, fontFamily: 'Georgia, serif', fontSize: '3.5rem', fontWeight: 900, color: rgba(accent, 0.08), lineHeight: 1, userSelect: 'none' }}>
-                    {String(i + 1).padStart(2, '0')}
-                  </div>
-
-                  {/* Quill icon */}
-                  <div style={{ marginBottom: 18 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: rgba(accent, 0.1), border: `1px solid ${rgba(accent, 0.2)}` }}>
-                      <span style={{ fontSize: '0.75rem' }}>✍️</span>
-                      <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>In Progress</span>
-                    </div>
-                  </div>
-
-                  {/* Title */}
-                  <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.3rem', fontWeight: 800, color: '#3d2e1a', margin: '0 0 8px', lineHeight: 1.2 }}>{book.title}</h3>
-
-                  {/* Genre chip */}
-                  {book.genre && (
-                    <div style={{ fontFamily: "'Lora', serif", fontSize: '0.68rem', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>{book.genre}</div>
-                  )}
-
-                  {/* Description */}
-                  {book.description && (
-                    <p style={{ fontFamily: "'Lora', serif", fontSize: '0.85rem', color: '#9a8060', lineHeight: 1.75, margin: '0 0 20px', fontStyle: 'italic' }}>
-                      {book.description.slice(0, 180)}{book.description.length > 180 ? '…' : ''}
-                    </p>
-                  )}
-
-                  {/* Estimated release */}
-                  {book.estimated_release && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 18, height: 1, background: rgba(accent, 0.4) }} />
-                      <span style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.78rem', color: '#b09070' }}>
-                        Expected: <span style={{ color: accent }}>{book.estimated_release}</span>
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Edit/delete in admin mode */}
-                  {isEditMode && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 20, paddingTop: 16, borderTop: `1px solid ${rgba(accent, 0.12)}` }}>
-                      <button onClick={() => onEdit(book)} style={{ flex: 1, padding: '7px', borderRadius: 6, background: 'transparent', border: `1px solid ${rgba(accent, 0.25)}`, fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#9a8060', cursor: 'pointer' }}>✎ Edit</button>
-                      <button onClick={() => { if (window.confirm(`Delete "${book.title}"?`)) onDelete(book) }} style={{ padding: '7px 12px', borderRadius: 6, background: 'transparent', border: '1px solid rgba(180,60,40,0.2)', fontFamily: "'Lora', serif", fontSize: '0.72rem', color: 'rgba(180,60,40,0.6)', cursor: 'pointer' }}>✕</button>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {books.map((book, i) => (
+              <ComingSoonCard key={book.id} book={book} index={i} isEditMode={isEditMode} onView={onView} onEdit={onEdit} onDelete={onDelete} />
+            ))}
           </div>
         )}
 
-        {/* Bottom ornamental rule */}
+        {/* Bottom ornament */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 64 }}>
-          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.25))' }} />
-          <div style={{ display: 'flex', gap: 5 }}>
-            {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', background: `rgba(201,168,76,${0.2 + i * 0.1})` }} />)}
-          </div>
-          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.25))' }} />
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.2))' }} />
+          {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', background: `rgba(201,168,76,${0.15 + i * 0.1})` }} />)}
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.2))' }} />
         </div>
       </div>
     </section>
+  )
+}
+
+// ── ComingSoonCard ─────────────────────────────────────────────────────────────
+// Horizontal cinematic card: full-height cover on left, rich info on right
+function ComingSoonCard({ book, index, isEditMode, onView, onEdit, onDelete }) {
+  const [hovered, setHovered] = useState(false)
+  const accent = book.theme_color || '#c9a84c'
+  const cover  = book.cover_url ? imgUrl(book.cover_url) : null
+
+  return (
+    <div
+      onClick={() => onView(book)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: 'relative',
+        display: 'grid',
+        gridTemplateColumns: cover ? '200px 1fr' : '1fr',
+        minHeight: 280,
+        borderRadius: 16,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        background: `linear-gradient(135deg, ${rgba(accent, 0.08)} 0%, rgba(26,16,6,0.6) 100%)`,
+        border: `1px solid ${hovered ? rgba(accent, 0.45) : rgba(accent, 0.15)}`,
+        marginBottom: 24,
+        transition: 'border-color 0.3s, box-shadow 0.3s, transform 0.3s',
+        boxShadow: hovered
+          ? `0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px ${rgba(accent, 0.2)}, inset 0 1px 0 ${rgba(accent, 0.1)}`
+          : '0 4px 20px rgba(0,0,0,0.3)',
+        transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
+      }}
+    >
+      {/* Left: Full cover */}
+      {cover && (
+        <div style={{ position: 'relative', overflow: 'hidden' }}>
+          <img
+            src={cover} alt={book.title}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              transition: 'transform 0.5s ease, filter 0.4s ease',
+              transform: hovered ? 'scale(1.05)' : 'scale(1)',
+              filter: hovered ? 'brightness(0.95) saturate(1.1)' : 'brightness(0.75) saturate(0.85)',
+            }}
+          />
+          {/* Right fade into card */}
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to right, transparent 40%, rgba(26,16,6,0.85))`, pointerEvents: 'none' }} />
+          {/* Accent tint overlay */}
+          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${rgba(accent, 0.2)} 0%, transparent 60%)`, pointerEvents: 'none' }} />
+          {/* Index watermark */}
+          <div style={{ position: 'absolute', bottom: 16, left: 14, fontFamily: 'Georgia, serif', fontSize: '4rem', fontWeight: 900, color: rgba(accent, 0.2), lineHeight: 1, userSelect: 'none' }}>
+            {String(index + 1).padStart(2, '0')}
+          </div>
+        </div>
+      )}
+
+      {/* Right: content */}
+      <div style={{ padding: cover ? '36px 40px 32px' : '36px 44px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+        {/* Corner accent */}
+        <div style={{ position: 'absolute', top: 18, right: 20, width: 18, height: 18, borderTop: `1.5px solid ${rgba(accent, hovered ? 0.7 : 0.25)}`, borderRight: `1.5px solid ${rgba(accent, hovered ? 0.7 : 0.25)}`, transition: 'border-color 0.3s' }} />
+
+        <div>
+          {/* Badge + genre row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, background: rgba(accent, 0.12), border: `1px solid ${rgba(accent, 0.3)}` }}>
+              <span style={{ fontSize: '0.7rem' }}>✍️</span>
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', color: accent, letterSpacing: '0.12em', textTransform: 'uppercase' }}>In Progress</span>
+            </div>
+            {book.genre && (
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: 'rgba(245,240,232,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', fontStyle: 'italic' }}>{book.genre}</span>
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: 'clamp(1.4rem, 2.5vw, 2rem)', fontWeight: 900,
+            color: hovered ? '#f5f0e8' : 'rgba(245,240,232,0.88)',
+            margin: '0 0 8px', lineHeight: 1.15,
+            transition: 'color 0.25s',
+          }}>{book.title}</h3>
+
+          {/* Ornamental rule */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+            <div style={{ width: 28, height: 1.5, background: accent, borderRadius: 1 }} />
+            <div style={{ width: 5, height: 5, borderRadius: '50%', border: `1.5px solid ${rgba(accent, 0.6)}` }} />
+            <div style={{ width: 14, height: 1.5, background: rgba(accent, 0.35), borderRadius: 1 }} />
+          </div>
+
+          {/* Description */}
+          {book.description && (
+            <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.9rem', color: 'rgba(245,240,232,0.55)', lineHeight: 1.85, margin: '0 0 22px', fontStyle: 'italic', maxWidth: 540 }}>
+              {stripToPlain(book.description).slice(0, 200)}{stripToPlain(book.description).length > 200 ? '…' : ''}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          {/* Estimated release */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {book.estimated_release && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 14, height: 1, background: rgba(accent, 0.5) }} />
+                <span style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.78rem', color: 'rgba(245,240,232,0.45)' }}>
+                  Expected: <span style={{ color: accent, fontWeight: 600 }}>{book.estimated_release}</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Read more + edit row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.72rem', fontStyle: 'italic', color: rgba(accent, hovered ? 0.9 : 0.45), transition: 'color 0.25s', letterSpacing: '0.04em' }}>
+              Learn more →
+            </span>
+            {isEditMode && (
+              <>
+                <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ padding: '5px 12px', borderRadius: 6, background: 'transparent', border: `1px solid ${rgba(accent, 0.25)}`, fontFamily: "'Lora', serif", fontSize: '0.68rem', color: 'rgba(245,240,232,0.4)', cursor: 'pointer' }}>✎ Edit</button>
+                <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${book.title}"?`)) onDelete(book) }} style={{ padding: '5px 10px', borderRadius: 6, background: 'transparent', border: '1px solid rgba(200,80,60,0.25)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: 'rgba(200,80,60,0.5)', cursor: 'pointer' }}>✕</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

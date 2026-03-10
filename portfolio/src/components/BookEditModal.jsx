@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createBook, updateBook, uploadFile, imgUrl } from '../api'
+import { RichTextEditor } from './RichText'
 
 const BOOK_TYPES = ['novel', 'novella', 'short story', 'collection', 'non-fiction', 'poetry']
 const GENRES = [
@@ -205,7 +206,12 @@ export default function BookEditModal({ book, onSave, onClose }) {
           {/* Description */}
           <div style={{ marginBottom: 14 }}>
             <Label>Description / Blurb</Label>
-            <textarea value={values.description || ''} onChange={e => set('description', e.target.value)} rows={4} placeholder="The back-cover blurb…" style={{ ...F, resize: 'vertical', lineHeight: 1.65 }} onFocus={focus} onBlur={blur} />
+            <RichTextEditor
+              value={values.description || ''}
+              onChange={v => set('description', v)}
+              rows={7}
+              placeholder="Write your blurb… use **bold**, _italic_, # Heading, - bullet list"
+            />
           </div>
 
           {/* Format + Genre */}
@@ -248,7 +254,9 @@ export default function BookEditModal({ book, onSave, onClose }) {
             <div>
               <Label>Published Date</Label>
               <input type="date" value={values.published_at || ''} onChange={e => set('published_at', e.target.value)}
-                style={{ ...F, colorScheme: 'light', accentColor: '#c9a84c' }} onFocus={focus} onBlur={blur} />
+                style={{ ...F, colorScheme: 'light', accentColor: '#c9a84c', cursor: 'pointer' }}
+                onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.7)'; e.target.style.boxShadow = '0 0 0 3px rgba(201,168,76,0.1)' }}
+                onBlur={e => { e.target.style.borderColor = 'rgba(201,168,76,0.25)'; e.target.style.boxShadow = 'none' }} />
             </div>
             <div>
               <Label>Pages</Label>
@@ -310,6 +318,15 @@ export default function BookEditModal({ book, onSave, onClose }) {
               {saving ? 'Saving…' : isNew ? 'Add to Library' : 'Save Changes'}
             </button>
           </div>
+          <style>{`
+            input[type="date"]::-webkit-calendar-picker-indicator {
+              filter: sepia(1) saturate(4) hue-rotate(5deg) brightness(0.85);
+              cursor: pointer; opacity: 0.7;
+            }
+            input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+            input[type="date"]::-webkit-datetime-edit { color: #3d2e1a; }
+            input[type="date"]::-webkit-datetime-edit-fields-wrapper { color: #3d2e1a; }
+          `}</style>
         </div>
       </div>
     </div>

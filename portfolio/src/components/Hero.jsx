@@ -56,10 +56,9 @@ const SOCIAL_DEFS = {
 const PROFILE_FIELDS = [
   { key: 'name',         label: 'name',              required: true },
   { key: 'tagline',      label: 'tagline' },
-  { key: 'bio',          label: 'bio',                type: 'textarea' },
+  { key: 'dev_bio',      label: 'developer bio',     type: 'textarea' },
   { key: 'email',        label: 'email' },
   { key: 'phone',        label: 'phone' },
-  { key: 'author_tagline', label: 'author tagline' },
   { key: 'location',     label: 'location' },
   { key: 'github_url',   label: 'github_url' },
   { key: 'linkedin_url', label: 'linkedin_url' },
@@ -67,6 +66,9 @@ const PROFILE_FIELDS = [
   { key: 'website_url',  label: 'website_url' },
   { key: 'available',    label: 'available for work', type: 'checkbox', placeholder: 'Currently available' },
 ]
+
+// Keys that belong exclusively to dev mode — never overwrite author-side fields
+const DEV_PROFILE_KEYS = PROFILE_FIELDS.map(f => f.key)
 
 // ─── Social pill button ───────────────────────────────────────────────────────
 function SocialPill({ url, type }) {
@@ -348,8 +350,10 @@ export default function Hero() {
   }, [])
 
   const handleSave = async (values) => {
-    await updateProfile(values)
-    setProfile(p => ({ ...p, ...values }))
+    // Only send keys that belong to dev mode — never overwrite author_bio, author_tagline etc.
+    const patch = Object.fromEntries(DEV_PROFILE_KEYS.map(k => [k, values[k]]))
+    await updateProfile(patch)
+    setProfile(p => ({ ...p, ...patch }))
   }
 
   const termLines = profile ? [
@@ -431,13 +435,13 @@ export default function Hero() {
             </div>
 
             {/* Bio */}
-            {profile.bio && (
+            {(profile.dev_bio || profile.bio) && (
               <p style={{
                 color: 'var(--text-muted)', lineHeight: 1.75,
                 maxWidth: '460px', marginBottom: '32px', fontSize: '0.9rem',
                 fontFamily: 'var(--font-sans)',
               }}>
-                {profile.bio}
+                {profile.dev_bio || profile.bio}
               </p>
             )}
 
