@@ -52,6 +52,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
     book_type: 'novel', published: false, self_published: false,
     publisher: '', published_at: '', amazon_url: '', goodreads_url: '',
     other_buy_url: '', pages: '', isbn: '', featured: false,
+    coming_soon: false, estimated_release: '',
     sort_order: 0, cover_url: '', theme_color: '#c9a84c',
     ...(book || {}),
   })
@@ -85,6 +86,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
         pages: values.pages ? parseInt(values.pages) : null,
         sort_order: parseInt(values.sort_order) || 0,
         publisher: values.self_published ? null : (values.publisher || null),
+        estimated_release: values.coming_soon ? (values.estimated_release || null) : null,
       }
       const saved = isNew ? await createBook(payload) : await updateBook(book.id, payload)
       onSave(saved); onClose()
@@ -121,6 +123,29 @@ export default function BookEditModal({ book, onSave, onClose }) {
 
         <div style={{ padding: '26px 32px 32px' }}>
 
+          {/* Coming Soon toggle — shown first, controls what else appears */}
+          <div style={{ marginBottom: 14, padding: '14px 16px', borderRadius: 10, background: values.coming_soon ? 'rgba(107,92,69,0.08)' : 'rgba(201,168,76,0.03)', border: `1px solid ${values.coming_soon ? 'rgba(107,92,69,0.2)' : 'rgba(201,168,76,0.1)'}`, transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <Label>Work in Progress / Coming Soon</Label>
+                <div style={{ fontFamily: "'Lora', serif", fontSize: '0.7rem', color: '#9a8060', fontStyle: 'italic', marginTop: -4 }}>
+                  Hides publishing details — shows in the Coming Soon section
+                </div>
+              </div>
+              <Chip active={values.coming_soon} onClick={() => set('coming_soon', !values.coming_soon)}>
+                {values.coming_soon ? '✍️ In Progress' : 'Mark as WIP'}
+              </Chip>
+            </div>
+            {values.coming_soon && (
+              <div style={{ marginTop: 14 }}>
+                <Label>Estimated Release</Label>
+                <input value={values.estimated_release || ''} onChange={e => set('estimated_release', e.target.value)}
+                  placeholder="e.g. Late 2025, Q2 2026, TBD…"
+                  style={{ ...F }} onFocus={focus} onBlur={blur} />
+              </div>
+            )}
+          </div>
+
           {/* Cover */}
           <div style={{ marginBottom: 22 }}>
             <Label>Cover Image</Label>
@@ -151,8 +176,13 @@ export default function BookEditModal({ book, onSave, onClose }) {
                 style={{ width: 46, height: 46, borderRadius: 9, border: '2px solid rgba(201,168,76,0.3)', cursor: 'pointer', padding: 2, background: 'transparent', flexShrink: 0 }} />
               <input value={accent} onChange={e => set('theme_color', e.target.value)} placeholder="#c9a84c"
                 style={{ ...F, fontFamily: 'monospace', letterSpacing: '0.06em', flex: 1 }} onFocus={focus} onBlur={blur} />
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 124 }}>
-                {['#e63946','#2a9d8f','#e76f51','#264653','#6a4c93','#f4a261','#457b9d','#c9a84c'].map(c => (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 180 }}>
+                {[
+                  '#e63946','#c1121f','#e76f51','#f4a261',
+                  '#e9c46a','#c9a84c','#2a9d8f','#52b788',
+                  '#457b9d','#264653','#6a4c93','#9b5de5',
+                  '#f72585','#b5179e','#6b4226','#8b8000',
+                ].map(c => (
                   <button key={c} onClick={() => set('theme_color', c)} title={c} type="button" style={{ width: 20, height: 20, borderRadius: '50%', padding: 0, cursor: 'pointer', background: c, border: accent === c ? '2px solid #3d2e1a' : '2px solid transparent', transform: accent === c ? 'scale(1.25)' : 'scale(1)', transition: 'transform 0.1s' }} />
                 ))}
               </div>
@@ -194,6 +224,9 @@ export default function BookEditModal({ book, onSave, onClose }) {
               </select>
             </div>
           </div>
+
+          {/* Publishing, buy links, date etc — only for non-WIP books */}
+          {!values.coming_soon && (<>
 
           {/* Publishing */}
           <div style={{ marginBottom: 14, padding: '16px', background: 'rgba(201,168,76,0.03)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.1)' }}>
@@ -241,18 +274,24 @@ export default function BookEditModal({ book, onSave, onClose }) {
             ))}
           </div>
 
+          </>)}
+
           {/* Status flags */}
           <div style={{ paddingTop: 16, borderTop: '1px solid rgba(201,168,76,0.1)', marginBottom: 0 }}>
             <Label>Status</Label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Chip active={values.published} onClick={() => set('published', !values.published)}>
-                {values.published ? '✓ Published' : 'Unpublished'}
-              </Chip>
-              <Chip active={values.featured} onClick={() => set('featured', !values.featured)}>
-                {values.featured ? '⭐ Featured' : 'Add to Featured'}
-              </Chip>
+              {!values.coming_soon && (
+                <Chip active={values.published} onClick={() => set('published', !values.published)}>
+                  {values.published ? '✓ Published' : 'Unpublished'}
+                </Chip>
+              )}
+              {!values.coming_soon && (
+                <Chip active={values.featured} onClick={() => set('featured', !values.featured)}>
+                  {values.featured ? '⭐ Featured' : 'Add to Featured'}
+                </Chip>
+              )}
             </div>
-            {values.featured && (
+            {values.featured && !values.coming_soon && (
               <div style={{ marginTop: 8, fontFamily: "'Lora', serif", fontSize: '0.72rem', fontStyle: 'italic', color: '#9a8060' }}>
                 Appears in the Featured section. Manage all featured books from the author page.
               </div>

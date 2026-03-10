@@ -150,6 +150,8 @@ func migrate() {
 		isbn           TEXT,
 		featured       INTEGER DEFAULT 0,
 		new_release    INTEGER DEFAULT 0,
+		coming_soon    INTEGER DEFAULT 0,
+		estimated_release TEXT,
 		theme_color    TEXT,
 		sort_order     INTEGER DEFAULT 0,
 		created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -173,6 +175,8 @@ func migrate() {
 		"ALTER TABLE profile ADD COLUMN phone TEXT",
 		"ALTER TABLE profile ADD COLUMN author_tagline TEXT",
 		"ALTER TABLE books ADD COLUMN theme_color TEXT",
+		"ALTER TABLE books ADD COLUMN coming_soon INTEGER DEFAULT 0",
+		"ALTER TABLE books ADD COLUMN estimated_release TEXT",
 	}
 	for _, stmt := range columnMigrations {
 		if _, err := DB.Exec(stmt); err != nil {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getBooks, getProfile, updateProfile, deleteBook, imgUrl, setFeaturedBooks, setNewRelease } from '../api'
 import AuthorNavbar from './AuthorNavbar'
@@ -319,10 +319,12 @@ export default function AuthorPage({ onModeChange }) {
   }
 
   const newRelease = books.find(b => b.new_release)
-  const featured   = books.filter(b => b.featured && !b.new_release)
-  const allTypes   = [...new Set(books.map(b => b.book_type).filter(Boolean))]
-  const allGenres  = [...new Set(books.map(b => b.genre).filter(Boolean))]
-  const filtered   = books.filter(b => {
+  const featured    = books.filter(b => b.featured)           // all featured books, shown in slideshow
+  const comingSoon  = books.filter(b => b.coming_soon)
+  const allTypes    = [...new Set(books.filter(b => !b.coming_soon).map(b => b.book_type).filter(Boolean))]
+  const allGenres   = [...new Set(books.map(b => b.genre).filter(Boolean))]
+  const filtered    = books.filter(b => {
+    if (b.coming_soon) return false  // don't show coming soon in All Works
     if (search && !b.title.toLowerCase().includes(search.toLowerCase()) && !(b.description || '').toLowerCase().includes(search.toLowerCase())) return false
     if (filterType && b.book_type !== filterType) return false
     if (filterGenre && b.genre !== filterGenre) return false
@@ -359,6 +361,39 @@ export default function AuthorPage({ onModeChange }) {
         <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Crect width='1' height='1' fill='%23c9a84c'/%3E%3C/svg%3E")` }} />
         <div style={{ position: 'absolute', top: '40%', left: '30%', transform: 'translate(-50%,-50%)', width: 600, height: 600, background: `radial-gradient(circle, ${rgba(heroAccent, 0.18)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: '-5%', right: '8%', width: 400, height: 400, background: `radial-gradient(circle, ${rgba(heroAccent, 0.1)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
+
+        {/* Celebratory corner borders — animated, theme-coloured */}
+        {newRelease && (<>
+          {/* Top-left corner */}
+          <div style={{ position: 'absolute', top: 20, left: 20, width: 70, height: 70, pointerEvents: 'none', zIndex: 5 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 2, background: `linear-gradient(to right, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: `linear-gradient(to bottom, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', top: 3, left: 3, width: 6, height: 6, borderRadius: '50%', background: heroAccent, boxShadow: `0 0 8px ${rgba(heroAccent, 0.8)}`, animation: 'gemPulse 2.5s ease-in-out infinite' }} />
+          </div>
+          {/* Top-right corner */}
+          <div style={{ position: 'absolute', top: 20, right: 20, width: 70, height: 70, pointerEvents: 'none', zIndex: 5 }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '100%', height: 2, background: `linear-gradient(to left, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite 0.5s' }} />
+            <div style={{ position: 'absolute', top: 0, right: 0, width: 2, height: '100%', background: `linear-gradient(to bottom, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite 0.5s' }} />
+            <div style={{ position: 'absolute', top: 3, right: 3, width: 6, height: 6, borderRadius: '50%', background: heroAccent, boxShadow: `0 0 8px ${rgba(heroAccent, 0.8)}`, animation: 'gemPulse 2.5s ease-in-out infinite 0.5s' }} />
+          </div>
+          {/* Bottom-left corner */}
+          <div style={{ position: 'absolute', bottom: 20, left: 20, width: 70, height: 70, pointerEvents: 'none', zIndex: 5 }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: 2, background: `linear-gradient(to right, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite 1s' }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 2, height: '100%', background: `linear-gradient(to top, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite 1s' }} />
+            <div style={{ position: 'absolute', bottom: 3, left: 3, width: 6, height: 6, borderRadius: '50%', background: heroAccent, boxShadow: `0 0 8px ${rgba(heroAccent, 0.8)}`, animation: 'gemPulse 2.5s ease-in-out infinite 1s' }} />
+          </div>
+          {/* Bottom-right corner */}
+          <div style={{ position: 'absolute', bottom: 20, right: 20, width: 70, height: 70, pointerEvents: 'none', zIndex: 5 }}>
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 2, background: `linear-gradient(to left, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite 1.5s' }} />
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 2, height: '100%', background: `linear-gradient(to top, ${heroAccent}, transparent)`, animation: 'borderGlow 3s ease-in-out infinite 1.5s' }} />
+            <div style={{ position: 'absolute', bottom: 3, right: 3, width: 6, height: 6, borderRadius: '50%', background: heroAccent, boxShadow: `0 0 8px ${rgba(heroAccent, 0.8)}`, animation: 'gemPulse 2.5s ease-in-out infinite 1.5s' }} />
+          </div>
+          {/* Mid-edge accent marks */}
+          <div style={{ position: 'absolute', top: '50%', left: 20, transform: 'translateY(-50%)', width: 2, height: 40, background: `linear-gradient(to bottom, transparent, ${rgba(heroAccent, 0.6)}, transparent)`, animation: 'borderGlow 4s ease-in-out infinite 0.3s', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '50%', right: 20, transform: 'translateY(-50%)', width: 2, height: 40, background: `linear-gradient(to bottom, transparent, ${rgba(heroAccent, 0.6)}, transparent)`, animation: 'borderGlow 4s ease-in-out infinite 0.8s', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', height: 2, width: 40, background: `linear-gradient(to right, transparent, ${rgba(heroAccent, 0.6)}, transparent)`, animation: 'borderGlow 4s ease-in-out infinite 0.6s', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', height: 2, width: 40, background: `linear-gradient(to right, transparent, ${rgba(heroAccent, 0.6)}, transparent)`, animation: 'borderGlow 4s ease-in-out infinite 1.1s', pointerEvents: 'none' }} />
+        </>)}
 
         <div style={{ ...innerMax, position: 'relative', width: '100%', padding: '140px 48px 100px' }}>
           {newRelease ? (
@@ -525,19 +560,11 @@ export default function AuthorPage({ onModeChange }) {
         </div>
       </section>
 
-      {/* ── ABOUT ─────────────────────────────────────────────────────────── */}
-      <section id="author-about" style={{ ...sectionPadding, background: '#2c1f0e' }}>
-        <div style={{ ...innerMax, maxWidth: 720, textAlign: 'center' }}>
-          <SectionHeaderDark eyebrow="The Author" title={profile?.name || 'Vishnu'} />
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.05rem', color: 'rgba(245,240,232,0.65)', lineHeight: 1.9 }}>
-            {profile?.bio || 'Writer. Storyteller. Builder of worlds.'}
-          </p>
-          <div style={{ marginTop: 36, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-            {profile?.goodreads_url && <a href={profile.goodreads_url} target="_blank" rel="noreferrer" style={darkLinkStyle}>Goodreads Profile ↗</a>}
-            {profile?.twitter_url && <a href={profile.twitter_url} target="_blank" rel="noreferrer" style={darkLinkStyle}>Twitter / X ↗</a>}
-          </div>
-        </div>
-      </section>
+      {/* ── AUTHOR BIO ────────────────────────────────────────────────────── */}
+      <AuthorBioSection profile={profile} isEditMode={isEditMode} onUpdate={async (patch) => { await updateProfile(patch); setProfile(p => ({ ...p, ...patch })) }} />
+
+      {/* ── COMING SOON ───────────────────────────────────────────────────── */}
+      <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} />
 
       {/* ── CONTACT ───────────────────────────────────────────────────────── */}
       <section id="author-contact" style={{ ...sectionPadding, background: '#fdf8f0' }}>
@@ -598,6 +625,22 @@ export default function AuthorPage({ onModeChange }) {
 
       <style>{`
         @keyframes fadeInUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes borderGlow {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; filter: drop-shadow(0 0 4px currentColor); }
+        }
+        @keyframes gemPulse {
+          0%, 100% { transform: scale(1); opacity: 0.7; }
+          50% { transform: scale(1.5); opacity: 1; }
+        }
+        @keyframes inkReveal {
+          from { clip-path: inset(0 100% 0 0); }
+          to { clip-path: inset(0 0% 0 0); }
+        }
+        @keyframes floatUp {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
       `}</style>
     </div>
   )
@@ -623,337 +666,628 @@ function NoBookCover({ title, large, accent = '#c9a84c' }) {
 const darkLinkStyle = { fontFamily: "'Lora', Georgia, serif", fontSize: '0.85rem', color: 'rgba(245,240,232,0.5)', textDecoration: 'none', border: '1px solid rgba(245,240,232,0.1)', borderRadius: 6, padding: '8px 18px', transition: 'all 0.2s' }
 
 // ── FeaturedSlideshow ─────────────────────────────────────────────────────────
+// Light parchment background, horizontal catalogue layout — distinct from the dark hero
 function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
-  const [idx, setIdx] = useState(0)
-  const [transitioning, setTransitioning] = useState(false)
+  const [idx, setIdx]           = useState(0)
+  const [phase, setPhase]       = useState('in')   // 'in' | 'out'
   const [descOpen, setDescOpen] = useState(false)
-  const timerRef = useState(null)
+  const intervalRef             = useRef(null)
 
-  const goTo = (next, userInitiated = false) => {
-    if (transitioning || next === idx) return
-    setTransitioning(true)
+  const startTimer = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (books.length <= 1) return
+    intervalRef.current = setInterval(() => {
+      setPhase('out')
+      setDescOpen(false)
+      setTimeout(() => {
+        setIdx(i => (i + 1) % books.length)
+        setPhase('in')
+      }, 400)
+    }, 5500)
+  }, [books.length])
+
+  const goTo = useCallback((next) => {
+    if (phase === 'out' || next === idx) return
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    setPhase('out')
     setDescOpen(false)
     setTimeout(() => {
       setIdx(next)
-      setTransitioning(false)
-    }, 550)
-  }
+      setPhase('in')
+      startTimer()
+    }, 400)
+  }, [phase, idx, startTimer])
 
-  // Auto-advance every 5s
   useEffect(() => {
-    if (books.length <= 1) return
-    const t = setInterval(() => {
-      setIdx(i => {
-        const next = (i + 1) % books.length
-        setTransitioning(true)
-        setDescOpen(false)
-        setTimeout(() => setTransitioning(false), 550)
-        return next
-      })
-    }, 5000)
-    return () => clearInterval(t)
+    setIdx(0); setPhase('in'); setDescOpen(false)
+    startTimer()
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [books.length])
-
-  // Reset idx if books change
-  useEffect(() => { setIdx(0); setDescOpen(false) }, [books.length])
 
   // Empty state
   if (books.length === 0) {
     return (
       <section style={{
-        background: '#1a1410', minHeight: 320,
+        background: 'linear-gradient(160deg, #fdf8f0 0%, #f5ede0 100%)',
+        padding: '80px 48px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 20, padding: '64px 48px',
+        gap: 16, borderTop: '1px solid rgba(201,168,76,0.15)',
+        borderBottom: '1px solid rgba(201,168,76,0.15)',
       }}>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: '0.72rem', color: 'rgba(201,168,76,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', fontStyle: 'italic' }}>Selected Works</div>
-        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', color: 'rgba(245,240,232,0.2)', fontWeight: 700 }}>Featured Titles</div>
-        <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: 'rgba(245,240,232,0.25)', fontSize: '0.9rem' }}>
-          No books are featured right now.
-        </div>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: '0.68rem', color: 'rgba(201,168,76,0.5)', letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>Featured Titles</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: 'rgba(61,46,26,0.2)', fontWeight: 700 }}>No featured books yet</div>
         {isEditMode && (
-          <button onClick={onManage} style={{
-            marginTop: 8, padding: '10px 24px', borderRadius: 8,
-            background: '#c9a84c', border: 'none',
-            fontFamily: "'Playfair Display', serif", fontSize: '0.85rem', fontWeight: 600,
-            color: '#1a1410', cursor: 'pointer',
-          }}>⭐ Choose Featured Books</button>
+          <button onClick={onManage} style={{ marginTop: 8, padding: '10px 24px', borderRadius: 8, background: '#c9a84c', border: 'none', fontFamily: "'Playfair Display', serif", fontSize: '0.85rem', fontWeight: 600, color: '#1a1410', cursor: 'pointer' }}>⭐ Choose Featured Books</button>
         )}
       </section>
     )
   }
 
-  const book   = books[idx]
+  const book   = books[idx] || books[0]
   const accent = book.theme_color || '#c9a84c'
-  const light  = isLight(accent)
   const cover  = book.cover_url ? imgUrl(book.cover_url) : null
-
-  const desc = book.description || ''
-  const shortDesc = desc.split(' ').slice(0, 40).join(' ') + (desc.split(' ').length > 40 ? '…' : '')
+  const desc   = book.description || ''
+  const shortDesc = desc.split(' ').slice(0, 36).join(' ') + (desc.split(' ').length > 36 ? '…' : '')
 
   return (
     <section style={{
-      position: 'relative', overflow: 'hidden',
-      minHeight: '100vh',
-      background: darken(accent, 0.78),
+      position: 'relative',
+      background: 'linear-gradient(180deg, #fdf8f0 0%, #f5ede0 100%)',
+      padding: '0',
+      overflow: 'hidden',
+      borderTop: '1px solid rgba(201,168,76,0.18)',
     }}>
-      {/* Animated bg gradient that shifts with each book */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: `radial-gradient(ellipse 70% 60% at 60% 50%, ${rgba(accent, 0.22)} 0%, transparent 70%)`,
-        transition: 'all 0.8s ease',
-        pointerEvents: 'none',
-      }} />
-      {/* Noise grain */}
-      <div style={{
-        position: 'absolute', inset: 0, opacity: 0.035,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        pointerEvents: 'none',
-      }} />
-
-      {/* Section label + manage button */}
-      <div style={{
-        position: 'absolute', top: 36, left: 48, right: 48,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        zIndex: 10,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 28, height: 1, background: rgba(accent, 0.6) }} />
-          <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: rgba(accent, 0.7), letterSpacing: '0.2em', textTransform: 'uppercase', fontStyle: 'italic' }}>
-            Selected Works
-          </span>
+      {/* Decorative top rule */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '44px 48px 0' }}>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.3))' }} />
+        <div style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(201,168,76,0.4)', display: 'block' }} />
+          <span style={{ fontFamily: "'Lora', serif", fontSize: '0.62rem', color: '#c9a84c', letterSpacing: '0.24em', textTransform: 'uppercase', fontStyle: 'italic' }}>Selected Works</span>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(201,168,76,0.4)', display: 'block' }} />
         </div>
-        {isEditMode && (
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.3))' }} />
+      </div>
+
+      {/* Section title */}
+      <div style={{ textAlign: 'center', padding: '20px 48px 0' }}>
+        <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 900, color: '#3d2e1a', margin: 0, letterSpacing: '-0.01em' }}>Featured Titles</h2>
+        <div style={{ width: 40, height: 2, background: '#c9a84c', margin: '12px auto 0', borderRadius: 1 }} />
+      </div>
+
+      {/* Manage button (edit mode) */}
+      {isEditMode && (
+        <div style={{ position: 'absolute', top: 40, right: 40, zIndex: 10 }}>
           <button onClick={onManage} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 7,
-            background: 'rgba(26,20,16,0.6)', backdropFilter: 'blur(6px)',
-            border: `1px solid ${rgba(accent, 0.35)}`,
-            fontFamily: "'Lora', serif", fontSize: '0.7rem', color: rgba(accent, 0.8),
+            background: 'rgba(245,240,232,0.9)', backdropFilter: 'blur(6px)',
+            border: '1px solid rgba(201,168,76,0.3)',
+            fontFamily: "'Lora', serif", fontSize: '0.7rem', color: '#9a8060',
             cursor: 'pointer', transition: 'all 0.2s',
           }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Manage Featured
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Main layout */}
+      {/* Main content */}
       <div style={{
-        maxWidth: 1140, margin: '0 auto',
-        minHeight: '100vh',
+        maxWidth: 1100, margin: '0 auto',
+        padding: '48px 48px 64px',
         display: 'grid',
-        gridTemplateColumns: '1fr 380px',
-        gap: 0, alignItems: 'stretch',
-        position: 'relative', zIndex: 2,
-        padding: '120px 48px 80px',
+        gridTemplateColumns: '300px 1fr',
+        gap: 64, alignItems: 'start',
+        opacity: phase === 'out' ? 0 : 1,
+        transform: phase === 'out' ? 'translateY(10px)' : 'translateY(0)',
+        transition: 'opacity 0.35s ease, transform 0.35s ease',
       }}>
-        {/* Left — text */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          paddingRight: 60,
-          opacity: transitioning ? 0 : 1,
-          transform: transitioning ? 'translateY(16px)' : 'translateY(0)',
-          transition: 'opacity 0.5s ease, transform 0.5s ease',
-        }}>
-          {/* Book index label */}
-          <div style={{
-            fontFamily: "'Lora', serif", fontSize: '0.62rem',
-            color: rgba(accent, 0.55), letterSpacing: '0.18em',
-            textTransform: 'uppercase', marginBottom: 20,
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <span style={{ fontFamily: 'monospace', fontSize: '0.7rem', color: rgba(accent, 0.4) }}>
-              {String(idx + 1).padStart(2, '0')} / {String(books.length).padStart(2, '0')}
-            </span>
-            <span style={{ flex: 1, height: 1, background: rgba(accent, 0.2), maxWidth: 60 }} />
-            {book.book_type}{book.genre ? ` · ${book.genre}` : ''}
-          </div>
-
-          {/* Title */}
-          <h2 style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 'clamp(2.2rem, 4.5vw, 3.8rem)',
-            fontWeight: 900, color: '#f5f0e8',
-            lineHeight: 1.06, margin: '0 0 12px',
-            textShadow: `0 4px 40px ${rgba(accent, 0.3)}`,
-          }}>{book.title}</h2>
-
-          {book.subtitle && (
+        {/* Cover column */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+          <div
+            onClick={() => onView(book)}
+            style={{ cursor: 'pointer', position: 'relative' }}
+          >
+            {/* Decorative coloured shadow-block behind cover */}
             <div style={{
-              fontFamily: "'Lora', serif", fontStyle: 'italic',
-              fontSize: '1.05rem', color: 'rgba(245,240,232,0.5)',
-              marginBottom: 24, lineHeight: 1.5,
-            }}>{book.subtitle}</div>
-          )}
-
-          {/* Accent rule */}
-          <div style={{ width: 48, height: 2, background: accent, marginBottom: 24, borderRadius: 1 }} />
-
-          {/* Description */}
-          {desc && (
-            <div style={{ marginBottom: 32 }}>
-              <p style={{
-                fontFamily: "'Lora', serif", fontSize: '0.95rem',
-                color: 'rgba(245,240,232,0.6)', lineHeight: 1.85,
-                margin: 0, maxWidth: 480,
-              }}>
-                {descOpen ? desc : shortDesc}
-              </p>
-              {desc.split(' ').length > 40 && (
-                <button onClick={() => setDescOpen(v => !v)} style={{
-                  marginTop: 8, background: 'none', border: 'none', padding: 0,
-                  fontFamily: "'Lora', serif", fontSize: '0.75rem', fontStyle: 'italic',
-                  color: rgba(accent, 0.7), cursor: 'pointer',
-                  borderBottom: `1px solid ${rgba(accent, 0.3)}`,
-                }}>{descOpen ? 'show less' : 'read more'}</button>
-              )}
-            </div>
-          )}
-
-          {/* CTAs */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 40 }}>
-            <button onClick={() => onView(book)} style={{
-              padding: '12px 28px', borderRadius: 8, border: 'none',
-              background: accent, color: light ? '#1a1410' : '#f5f0e8',
-              fontFamily: "'Playfair Display', serif", fontSize: '0.88rem', fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.2s',
-              boxShadow: `0 4px 20px ${rgba(accent, 0.4)}`,
-            }}
-            onMouseEnter={e => e.currentTarget.style.boxShadow = `0 8px 32px ${rgba(accent, 0.6)}`}
-            onMouseLeave={e => e.currentTarget.style.boxShadow = `0 4px 20px ${rgba(accent, 0.4)}`}
-            >Explore Book</button>
-            {book.amazon_url && (
-              <a href={book.amazon_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                style={{
-                  padding: '12px 22px', borderRadius: 8,
-                  border: `1px solid ${rgba(accent, 0.35)}`,
-                  color: 'rgba(245,240,232,0.7)', textDecoration: 'none',
-                  fontFamily: "'Lora', serif", fontSize: '0.85rem',
-                  transition: 'all 0.2s', background: 'transparent',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = rgba(accent, 0.7); e.currentTarget.style.color = '#f5f0e8' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = rgba(accent, 0.35); e.currentTarget.style.color = 'rgba(245,240,232,0.7)' }}
-              >Get Copy ↗</a>
+              position: 'absolute', top: 12, left: 12, right: -12, bottom: -12,
+              background: rgba(accent, 0.18),
+              borderRadius: 8,
+              border: `1px solid ${rgba(accent, 0.25)}`,
+            }} />
+            {cover ? (
+              <img src={cover} alt={book.title} style={{
+                width: 220, height: 300, objectFit: 'cover',
+                borderRadius: 6, display: 'block', position: 'relative',
+                boxShadow: `0 12px 40px rgba(61,46,26,0.25), 0 2px 8px ${rgba(accent, 0.2)}`,
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02) translateY(-3px)'; e.currentTarget.style.boxShadow = `0 20px 56px rgba(61,46,26,0.3), 0 4px 16px ${rgba(accent, 0.3)}` }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = `0 12px 40px rgba(61,46,26,0.25), 0 2px 8px ${rgba(accent, 0.2)}` }}
+              />
+            ) : (
+              <div style={{ width: 220, height: 300, background: `linear-gradient(135deg, ${rgba(accent, 0.25)}, ${rgba(accent, 0.08)})`, border: `1px solid ${rgba(accent, 0.25)}`, borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'relative' }}>
+                <div style={{ fontSize: '2rem', opacity: 0.3 }}>📖</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: '0.85rem', color: '#6b5c45', lineHeight: 1.4, textAlign: 'center', padding: '0 16px' }}>{book.title}</div>
+              </div>
             )}
           </div>
 
-          {/* Dot navigation */}
+          {/* Dot nav */}
           {books.length > 1 && (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
               {books.map((b, i) => (
-                <button key={i} onClick={() => goTo(i, true)} style={{
-                  padding: 0, border: 'none', cursor: 'pointer', background: 'none',
-                  display: 'flex', alignItems: 'center',
-                }}>
+                <button key={i} onClick={() => goTo(i)} style={{ padding: 0, border: 'none', cursor: 'pointer', background: 'none' }}>
                   <div style={{
-                    width: i === idx ? 28 : 7, height: 7,
-                    borderRadius: 4,
-                    background: i === idx ? accent : rgba(accent, 0.25),
+                    width: i === idx ? 22 : 7, height: 7, borderRadius: 4,
+                    background: i === idx ? accent : 'rgba(201,168,76,0.25)',
                     transition: 'all 0.35s ease',
                   }} />
                 </button>
               ))}
-              {/* Progress bar for current slide */}
-              <div style={{ flex: 1, maxWidth: 100, height: 2, background: rgba(accent, 0.15), borderRadius: 1, overflow: 'hidden', marginLeft: 6 }}>
-                <div style={{
-                  height: '100%', background: rgba(accent, 0.5),
-                  borderRadius: 1,
-                  animation: books.length > 1 ? 'slideProgress 5s linear infinite' : 'none',
-                  animationPlayState: transitioning ? 'paused' : 'running',
-                }} />
-              </div>
             </div>
           )}
         </div>
 
-        {/* Right — cover */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: transitioning ? 0 : 1,
-          transform: transitioning ? 'scale(0.96) translateY(12px)' : 'scale(1) translateY(0)',
-          transition: 'opacity 0.5s ease, transform 0.5s ease',
-          cursor: 'pointer',
-        }}
-        onClick={() => onView(book)}
-        >
-          {cover ? (
-            <div style={{
-              position: 'relative',
-              filter: `drop-shadow(0 32px 72px rgba(0,0,0,0.65)) drop-shadow(0 4px 20px ${rgba(accent, 0.35)})`,
-            }}>
-              <div style={{
-                position: 'absolute', inset: -24,
-                background: `radial-gradient(ellipse, ${rgba(accent, 0.3)} 0%, transparent 70%)`,
-                filter: 'blur(16px)', pointerEvents: 'none',
-              }} />
-              <img src={cover} alt={book.title} style={{
-                maxHeight: 480, maxWidth: 320, borderRadius: 6,
-                display: 'block', position: 'relative',
-                transform: 'perspective(800px) rotateY(-3deg)',
-                transition: 'transform 0.4s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'perspective(800px) rotateY(0deg) scale(1.02)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'perspective(800px) rotateY(-3deg)' }}
-              />
-              <div style={{
-                position: 'absolute', inset: -1, borderRadius: 8, pointerEvents: 'none',
-                background: `linear-gradient(135deg, ${rgba(accent, 0.45)} 0%, transparent 45%, ${rgba(accent, 0.2)} 100%)`,
-              }} />
-            </div>
-          ) : (
-            <div style={{
-              width: 260, height: 360,
-              background: `linear-gradient(135deg, ${darken(accent, 0.4)}, ${darken(accent, 0.65)})`,
-              border: `1px solid ${rgba(accent, 0.25)}`, borderRadius: 6,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              padding: 24, textAlign: 'center',
-              boxShadow: `0 24px 60px rgba(0,0,0,0.5)`,
-            }}>
-              <div style={{ fontSize: '2rem', opacity: 0.25, marginBottom: 14 }}>📖</div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: '0.95rem', color: 'rgba(245,240,232,0.4)', lineHeight: 1.4 }}>{book.title}</div>
+        {/* Text column */}
+        <div style={{ paddingTop: 12 }}>
+          {/* Index + meta */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+            <span style={{
+              fontFamily: 'Georgia, serif', fontSize: '3rem', fontWeight: 900, lineHeight: 1,
+              color: rgba(accent, 0.2), letterSpacing: '-0.03em', userSelect: 'none',
+            }}>{String(idx + 1).padStart(2, '0')}</span>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, ${rgba(accent, 0.4)}, transparent)` }} />
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: '#b09070', letterSpacing: '0.12em', textTransform: 'uppercase', fontStyle: 'italic' }}>
+              {book.book_type}{book.genre ? ` · ${book.genre}` : ''}
+            </span>
+          </div>
+
+          {/* Title */}
+          <h3
+            onClick={() => onView(book)}
+            onMouseEnter={e => e.currentTarget.style.color = darken(accent, 0.3)}
+            onMouseLeave={e => e.currentTarget.style.color = '#3d2e1a'}
+            style={{ cursor: 'pointer', fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)', fontWeight: 900, color: '#3d2e1a', lineHeight: 1.1, margin: '0 0 10px', transition: 'color 0.2s' }}
+          >{book.title}</h3>
+
+          {book.subtitle && (
+            <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '1rem', color: '#9a8060', marginBottom: 18, lineHeight: 1.5 }}>{book.subtitle}</div>
+          )}
+
+          {/* Ornamental rule */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
+            <div style={{ width: 32, height: 2, background: accent, borderRadius: 1 }} />
+            <div style={{ width: 6, height: 6, borderRadius: '50%', border: `2px solid ${rgba(accent, 0.5)}` }} />
+            <div style={{ width: 16, height: 2, background: rgba(accent, 0.3), borderRadius: 1 }} />
+          </div>
+
+          {/* Description */}
+          {desc && (
+            <div style={{ marginBottom: 28 }}>
+              <p style={{ fontFamily: "'Lora', serif", fontSize: '0.95rem', color: '#6b5c45', lineHeight: 1.9, margin: 0, fontStyle: 'italic' }}>
+                {descOpen ? desc : shortDesc}
+              </p>
+              {desc.split(' ').length > 36 && (
+                <button onClick={() => setDescOpen(v => !v)} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontFamily: "'Lora', serif", fontSize: '0.75rem', fontStyle: 'italic', color: rgba(accent, 0.8), cursor: 'pointer', borderBottom: `1px solid ${rgba(accent, 0.3)}` }}>
+                  {descOpen ? 'show less' : 'read more'}
+                </button>
+              )}
             </div>
           )}
+
+          {/* Meta chips */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
+            {[
+              book.published_at && { label: 'Published', val: book.published_at.slice(0,7) },
+              book.pages && { label: 'Pages', val: book.pages },
+              book.publisher && { label: 'Publisher', val: book.publisher },
+              book.self_published && { label: 'Publisher', val: 'Self-Published' },
+            ].filter(Boolean).map((m, i) => (
+              <div key={i} style={{ padding: '5px 12px', borderRadius: 20, background: rgba(accent, 0.08), border: `1px solid ${rgba(accent, 0.2)}`, fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#9a8060' }}>
+                <span style={{ color: accent, fontStyle: 'italic', marginRight: 4 }}>{m.label}:</span>{m.val}
+              </div>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => onView(book)} style={{
+              padding: '11px 26px', borderRadius: 8, border: 'none',
+              background: accent, color: isLight(accent) ? '#1a1410' : '#f5f0e8',
+              fontFamily: "'Playfair Display', serif", fontSize: '0.85rem', fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: `0 4px 16px ${rgba(accent, 0.35)}`,
+            }}>Read More</button>
+            {book.amazon_url && (
+              <a href={book.amazon_url} target="_blank" rel="noreferrer" style={{
+                padding: '11px 20px', borderRadius: 8,
+                border: `1px solid ${rgba(accent, 0.4)}`,
+                color: '#9a8060', textDecoration: 'none',
+                fontFamily: "'Lora', serif", fontSize: '0.82rem',
+                transition: 'all 0.2s',
+              }}>Get Copy ↗</a>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Prev/Next arrow nav */}
+      {/* Prev/Next arrows */}
       {books.length > 1 && (
         <>
-          <button onClick={() => goTo((idx - 1 + books.length) % books.length, true)} style={{
-            position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)',
-            background: 'rgba(26,20,16,0.5)', backdropFilter: 'blur(6px)',
-            border: `1px solid ${rgba(accent, 0.2)}`, borderRadius: '50%',
-            width: 42, height: 42, cursor: 'pointer', color: rgba(accent, 0.7),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.2s', zIndex: 10,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = rgba(accent, 0.6); e.currentTarget.style.color = accent }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = rgba(accent, 0.2); e.currentTarget.style.color = rgba(accent, 0.7) }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <button onClick={() => goTo((idx - 1 + books.length) % books.length)} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(245,240,232,0.9)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', color: '#9a8060', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
-          <button onClick={() => goTo((idx + 1) % books.length, true)} style={{
-            position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)',
-            background: 'rgba(26,20,16,0.5)', backdropFilter: 'blur(6px)',
-            border: `1px solid ${rgba(accent, 0.2)}`, borderRadius: '50%',
-            width: 42, height: 42, cursor: 'pointer', color: rgba(accent, 0.7),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.2s', zIndex: 10,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = rgba(accent, 0.6); e.currentTarget.style.color = accent }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = rgba(accent, 0.2); e.currentTarget.style.color = rgba(accent, 0.7) }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <button onClick={() => goTo((idx + 1) % books.length)} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(245,240,232,0.9)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', color: '#9a8060', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </>
       )}
 
-      <style>{`
-        @keyframes slideProgress {
-          from { width: 0%; }
-          to   { width: 100%; }
-        }
-      `}</style>
+      {/* Decorative bottom rule */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 48px 44px' }}>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.2))' }} />
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(201,168,76,0.3)', margin: '0 16px' }} />
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.2))' }} />
+      </div>
+    </section>
+  )
+}
+
+// ── AuthorBioSection ──────────────────────────────────────────────────────────
+function AuthorBioSection({ profile, isEditMode, onUpdate }) {
+  const [editing, setEditing]     = useState(false)
+  const [bioVal, setBioVal]       = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [photoUp, setPhotoUp]     = useState(false)
+  const [photoDrag, setPhotoDrag] = useState(false)
+
+  const startEdit = () => { setBioVal(profile?.bio || ''); setEditing(true) }
+  const cancel    = () => setEditing(false)
+
+  const saveBio = async () => {
+    setSaving(true)
+    await onUpdate({ bio: bioVal })
+    setSaving(false)
+    setEditing(false)
+  }
+
+  const handlePhoto = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return
+    setPhotoUp(true)
+    try {
+      // reuse the uploadFile helper; bucket "profile"
+      const { uploadFile } = await import('../api')
+      const res = await uploadFile(file, 'profile')
+      await onUpdate({ avatar_url: res.url })
+    } catch(e) { alert('Photo upload failed: ' + e.message) }
+    finally { setPhotoUp(false) }
+  }
+
+  const bio    = profile?.bio || 'Writer. Storyteller. Builder of worlds.'
+  const name   = profile?.name || 'The Author'
+  const avatar = profile?.avatar_url
+
+  return (
+    <section id="author-about" style={{
+      position: 'relative', overflow: 'hidden',
+      background: 'linear-gradient(160deg, #1e1508 0%, #2c1f0e 50%, #1a1006 100%)',
+      padding: '100px 48px',
+    }}>
+      {/* Decorative background pattern */}
+      <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23c9a84c'/%3E%3C/svg%3E")`, backgroundSize: '60px 60px', pointerEvents: 'none' }} />
+      {/* Gold glow */}
+      <div style={{ position: 'absolute', top: '-10%', right: '10%', width: 500, height: 500, background: 'radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+      <div style={{ maxWidth: 1080, margin: '0 auto', position: 'relative' }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 8 }}>
+            <div style={{ flex: 1, maxWidth: 100, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.4))' }} />
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: 'rgba(201,168,76,0.6)', letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>The Author</span>
+            <div style={{ flex: 1, maxWidth: 100, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.4))' }} />
+          </div>
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900, color: '#f5f0e8', margin: 0, textShadow: '0 2px 30px rgba(201,168,76,0.15)' }}>{name}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+            <div style={{ width: 20, height: 1, background: 'rgba(201,168,76,0.35)' }} />
+            <div style={{ width: 5, height: 5, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.5)' }} />
+            <div style={{ width: 40, height: 1, background: 'rgba(201,168,76,0.35)' }} />
+            <div style={{ width: 5, height: 5, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.5)' }} />
+            <div style={{ width: 20, height: 1, background: 'rgba(201,168,76,0.35)' }} />
+          </div>
+        </div>
+
+        {/* Layout: photo + bio */}
+        <div style={{ display: 'grid', gridTemplateColumns: avatar || isEditMode ? '280px 1fr' : '1fr', gap: 64, alignItems: 'start' }}>
+
+          {/* Photo column */}
+          {(avatar || isEditMode) && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              {/* Photo frame */}
+              <div style={{ position: 'relative' }}>
+                {/* Outer ornamental frame */}
+                <div style={{
+                  position: 'absolute', inset: -12,
+                  border: '1px solid rgba(201,168,76,0.2)',
+                  borderRadius: 16,
+                  background: 'rgba(201,168,76,0.04)',
+                }} />
+                {/* Corner dots */}
+                {[[-8,-8],[-8,'auto'],['auto',-8],['auto','auto']].map(([t,l,b,r], i) => {
+                  const pos = [
+                    { top: -16, left: -16 }, { top: -16, right: -16 },
+                    { bottom: -16, left: -16 }, { bottom: -16, right: -16 },
+                  ][i]
+                  return <div key={i} style={{ position: 'absolute', width: 8, height: 8, borderRadius: '50%', background: 'rgba(201,168,76,0.35)', ...pos }} />
+                })}
+
+                {/* Photo */}
+                <div
+                  onDragOver={isEditMode ? (e => { e.preventDefault(); setPhotoDrag(true) }) : undefined}
+                  onDragLeave={isEditMode ? (() => setPhotoDrag(false)) : undefined}
+                  onDrop={isEditMode ? (e => { e.preventDefault(); setPhotoDrag(false); handlePhoto(e.dataTransfer.files?.[0]) }) : undefined}
+                  onClick={isEditMode ? (() => document.getElementById('author-photo-input')?.click()) : undefined}
+                  style={{
+                    width: 240, height: 300,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    border: `2px solid rgba(201,168,76,${photoDrag ? '0.7' : '0.2'})`,
+                    cursor: isEditMode ? 'pointer' : 'default',
+                    transition: 'border-color 0.2s',
+                    background: '#1a1006',
+                  }}
+                >
+                  {avatar ? (
+                    <>
+                      <img src={avatar.startsWith('http') ? avatar : `/api/uploads/${avatar.replace(/^\/+/, '')}`}
+                        alt={name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        onError={e => { e.target.style.display = 'none' }}
+                      />
+                      {/* Subtle vignette overlay */}
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(26,16,6,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
+                    </>
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                      <div style={{ fontSize: '2.5rem', opacity: 0.25 }}>📷</div>
+                      <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', textAlign: 'center', padding: '0 16px' }}>
+                        {photoUp ? 'Uploading…' : 'Click to add author photo'}
+                      </div>
+                    </div>
+                  )}
+                  {isEditMode && avatar && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,16,6,0)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(26,16,6,0.55)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(26,16,6,0)'}
+                    >
+                      <div style={{ opacity: 0, transition: 'opacity 0.2s', fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#c9a84c', textAlign: 'center', pointerEvents: 'none' }}
+                        ref={el => el && el.closest('div')?.addEventListener('mouseenter', () => el.style.opacity = '1') && el.closest('div')?.addEventListener('mouseleave', () => el.style.opacity = '0')}
+                      >Change photo</div>
+                    </div>
+                  )}
+                </div>
+                <input id="author-photo-input" type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => handlePhoto(e.target.files?.[0])} />
+              </div>
+
+              {/* Social links */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
+                {profile?.goodreads_url && (
+                  <a href={profile.goodreads_url} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: '7px 14px', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 6, transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'rgba(201,168,76,0.8)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = 'rgba(245,240,232,0.45)' }}>
+                    Goodreads ↗
+                  </a>
+                )}
+                {profile?.twitter_url && (
+                  <a href={profile.twitter_url} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: '7px 14px', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 6, transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'rgba(201,168,76,0.8)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = 'rgba(245,240,232,0.45)' }}>
+                    Twitter / X ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Bio column */}
+          <div>
+            {/* Opening quote mark */}
+            <div style={{ fontFamily: 'Georgia, serif', fontSize: '5rem', color: 'rgba(201,168,76,0.15)', lineHeight: 0.8, marginBottom: 16, marginLeft: -8, userSelect: 'none' }}>"</div>
+
+            {!editing ? (
+              <>
+                <p style={{
+                  fontFamily: "'Lora', Georgia, serif",
+                  fontSize: '1.05rem', color: 'rgba(245,240,232,0.72)',
+                  lineHeight: 2, margin: 0, fontStyle: 'italic',
+                  whiteSpace: 'pre-wrap',
+                }}>{bio}</p>
+
+                {/* Closing rule */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 28 }}>
+                  <div style={{ width: 32, height: 1, background: 'rgba(201,168,76,0.35)' }} />
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(201,168,76,0.4)' }} />
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: '1.5rem', color: 'rgba(201,168,76,0.15)', lineHeight: 1 }}>"</div>
+                </div>
+
+                {isEditMode && (
+                  <button onClick={startEdit} style={{
+                    marginTop: 24, display: 'inline-flex', alignItems: 'center', gap: 7,
+                    padding: '8px 18px', borderRadius: 8,
+                    background: 'transparent', border: '1px solid rgba(201,168,76,0.2)',
+                    fontFamily: "'Lora', serif", fontSize: '0.75rem', color: 'rgba(201,168,76,0.6)',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)'; e.currentTarget.style.color = '#c9a84c' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.2)'; e.currentTarget.style.color = 'rgba(201,168,76,0.6)' }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit Bio
+                  </button>
+                )}
+              </>
+            ) : (
+              <div>
+                <textarea
+                  value={bioVal}
+                  onChange={e => setBioVal(e.target.value)}
+                  rows={8}
+                  placeholder="Write your author bio here…"
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '14px 16px',
+                    background: 'rgba(245,240,232,0.06)',
+                    border: '1px solid rgba(201,168,76,0.3)',
+                    borderRadius: 10, outline: 'none', resize: 'vertical',
+                    fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic',
+                    fontSize: '0.95rem', color: 'rgba(245,240,232,0.8)',
+                    lineHeight: 1.9,
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.65)'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(201,168,76,0.3)'}
+                  autoFocus
+                />
+                <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                  <button onClick={cancel} style={{ padding: '8px 20px', borderRadius: 7, background: 'transparent', border: '1px solid rgba(245,240,232,0.15)', fontFamily: "'Lora', serif", fontSize: '0.8rem', color: 'rgba(245,240,232,0.4)', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={saveBio} disabled={saving} style={{ padding: '8px 22px', borderRadius: 7, background: '#c9a84c', border: 'none', fontFamily: "'Playfair Display', serif", fontSize: '0.82rem', fontWeight: 600, color: '#1a1410', cursor: saving ? 'wait' : 'pointer' }}>
+                    {saving ? 'Saving…' : 'Save Bio'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── ComingSoonSection ─────────────────────────────────────────────────────────
+function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete }) {
+  if (books.length === 0 && !isEditMode) return null
+
+  return (
+    <section id="author-coming-soon" style={{
+      position: 'relative', overflow: 'hidden',
+      background: 'linear-gradient(180deg, #f5ede0 0%, #fdf8f0 100%)',
+      padding: '100px 48px',
+      borderTop: '1px solid rgba(201,168,76,0.12)',
+    }}>
+      {/* Decorative ink-drop background marks */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.3), transparent)', pointerEvents: 'none' }} />
+
+      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+        {/* Section header */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'end', marginBottom: 56 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
+              <div style={{ width: 28, height: 1, background: 'rgba(201,168,76,0.4)' }} />
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: '#c9a84c', letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>On the Horizon</span>
+            </div>
+            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.8rem)', fontWeight: 900, color: '#3d2e1a', margin: '0 0 10px', letterSpacing: '-0.01em' }}>Coming Soon</h2>
+            <p style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: '#9a8060', fontSize: '0.9rem', margin: 0 }}>
+              Stories taking shape — watch this space.
+            </p>
+          </div>
+          {isEditMode && (
+            <button onClick={onAdd} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '10px 20px', borderRadius: 8,
+              background: '#c9a84c', border: 'none',
+              fontFamily: "'Playfair Display', serif", fontSize: '0.82rem', fontWeight: 600,
+              color: '#1a1410', cursor: 'pointer',
+            }}>+ Add Upcoming</button>
+          )}
+        </div>
+
+        {books.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <div style={{ fontSize: '2rem', opacity: 0.2, marginBottom: 10 }}>✍️</div>
+            <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: '#b09070', fontSize: '0.9rem' }}>No upcoming works listed yet.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 28 }}>
+            {books.map((book, i) => {
+              const accent = book.theme_color || '#c9a84c'
+              return (
+                <div key={book.id} style={{
+                  position: 'relative',
+                  background: '#fff9f2',
+                  border: `1px solid ${rgba(accent, 0.2)}`,
+                  borderRadius: 14,
+                  padding: '32px 28px',
+                  overflow: 'hidden',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  boxShadow: '0 2px 16px rgba(61,46,26,0.06)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 40px rgba(61,46,26,0.1), 0 2px 12px ${rgba(accent, 0.12)}` }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 16px rgba(61,46,26,0.06)' }}
+                >
+                  {/* Top accent bar */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right, ${accent}, ${rgba(accent, 0.3)})`, borderRadius: '14px 14px 0 0' }} />
+
+                  {/* Index number */}
+                  <div style={{ position: 'absolute', top: 20, right: 20, fontFamily: 'Georgia, serif', fontSize: '3.5rem', fontWeight: 900, color: rgba(accent, 0.08), lineHeight: 1, userSelect: 'none' }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </div>
+
+                  {/* Quill icon */}
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: rgba(accent, 0.1), border: `1px solid ${rgba(accent, 0.2)}` }}>
+                      <span style={{ fontSize: '0.75rem' }}>✍️</span>
+                      <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>In Progress</span>
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.3rem', fontWeight: 800, color: '#3d2e1a', margin: '0 0 8px', lineHeight: 1.2 }}>{book.title}</h3>
+
+                  {/* Genre chip */}
+                  {book.genre && (
+                    <div style={{ fontFamily: "'Lora', serif", fontSize: '0.68rem', color: accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>{book.genre}</div>
+                  )}
+
+                  {/* Description */}
+                  {book.description && (
+                    <p style={{ fontFamily: "'Lora', serif", fontSize: '0.85rem', color: '#9a8060', lineHeight: 1.75, margin: '0 0 20px', fontStyle: 'italic' }}>
+                      {book.description.slice(0, 180)}{book.description.length > 180 ? '…' : ''}
+                    </p>
+                  )}
+
+                  {/* Estimated release */}
+                  {book.estimated_release && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 18, height: 1, background: rgba(accent, 0.4) }} />
+                      <span style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.78rem', color: '#b09070' }}>
+                        Expected: <span style={{ color: accent }}>{book.estimated_release}</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Edit/delete in admin mode */}
+                  {isEditMode && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 20, paddingTop: 16, borderTop: `1px solid ${rgba(accent, 0.12)}` }}>
+                      <button onClick={() => onEdit(book)} style={{ flex: 1, padding: '7px', borderRadius: 6, background: 'transparent', border: `1px solid ${rgba(accent, 0.25)}`, fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#9a8060', cursor: 'pointer' }}>✎ Edit</button>
+                      <button onClick={() => { if (window.confirm(`Delete "${book.title}"?`)) onDelete(book) }} style={{ padding: '7px 12px', borderRadius: 6, background: 'transparent', border: '1px solid rgba(180,60,40,0.2)', fontFamily: "'Lora', serif", fontSize: '0.72rem', color: 'rgba(180,60,40,0.6)', cursor: 'pointer' }}>✕</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Bottom ornamental rule */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 64 }}>
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.25))' }} />
+          <div style={{ display: 'flex', gap: 5 }}>
+            {[0,1,2].map(i => <div key={i} style={{ width: 4, height: 4, borderRadius: '50%', background: `rgba(201,168,76,${0.2 + i * 0.1})` }} />)}
+          </div>
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.25))' }} />
+        </div>
+      </div>
     </section>
   )
 }

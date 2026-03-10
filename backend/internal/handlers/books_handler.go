@@ -34,8 +34,8 @@ func scanBook(row interface{ Scan(...any) error }) (*models.Book, error) {
 		&b.ID, &b.Title, &b.Slug, &b.Subtitle, &b.Description, &b.CoverURL,
 		&b.Genre, &b.BookType, &b.Published, &b.SelfPublished, &b.Publisher,
 		&b.PublishedAt, &b.AmazonURL, &b.GoodreadsURL, &b.OtherBuyURL,
-		&b.Pages, &b.ISBN, &b.Featured, &b.NewRelease, &b.ThemeColor, &b.SortOrder,
-		&b.CreatedAt, &b.UpdatedAt,
+		&b.Pages, &b.ISBN, &b.Featured, &b.NewRelease, &b.ComingSoon, &b.EstimatedRelease,
+		&b.ThemeColor, &b.SortOrder, &b.CreatedAt, &b.UpdatedAt,
 	)
 }
 
@@ -43,8 +43,8 @@ const bookColumns = `
 	id, title, slug, subtitle, description, cover_url,
 	genre, book_type, published, self_published, publisher,
 	published_at, amazon_url, goodreads_url, other_buy_url,
-	pages, isbn, featured, new_release, theme_color, sort_order,
-	created_at, updated_at`
+	pages, isbn, featured, new_release, coming_soon, estimated_release,
+	theme_color, sort_order, created_at, updated_at`
 
 // ─── GET /api/books ───────────────────────────────────────────────────────────
 func GetBooks(c *gin.Context) {
@@ -113,25 +113,27 @@ func GetBook(c *gin.Context) {
 // ─── POST /api/admin/books ────────────────────────────────────────────────────
 func CreateBook(c *gin.Context) {
 	var in struct {
-		Title         string  `json:"title" binding:"required"`
-		Subtitle      *string `json:"subtitle"`
-		Description   *string `json:"description"`
-		CoverURL      *string `json:"cover_url"`
-		Genre         *string `json:"genre"`
-		BookType      string  `json:"book_type"`
-		Published     bool    `json:"published"`
-		SelfPublished bool    `json:"self_published"`
-		Publisher     *string `json:"publisher"`
-		PublishedAt   *string `json:"published_at"`
-		AmazonURL     *string `json:"amazon_url"`
-		GoodreadsURL  *string `json:"goodreads_url"`
-		OtherBuyURL   *string `json:"other_buy_url"`
-		Pages         *int    `json:"pages"`
-		ISBN          *string `json:"isbn"`
-		Featured      bool    `json:"featured"`
-		NewRelease    bool    `json:"new_release"`
-		ThemeColor    *string `json:"theme_color"`
-		SortOrder     int     `json:"sort_order"`
+		Title            string  `json:"title" binding:"required"`
+		Subtitle         *string `json:"subtitle"`
+		Description      *string `json:"description"`
+		CoverURL         *string `json:"cover_url"`
+		Genre            *string `json:"genre"`
+		BookType         string  `json:"book_type"`
+		Published        bool    `json:"published"`
+		SelfPublished    bool    `json:"self_published"`
+		Publisher        *string `json:"publisher"`
+		PublishedAt      *string `json:"published_at"`
+		AmazonURL        *string `json:"amazon_url"`
+		GoodreadsURL     *string `json:"goodreads_url"`
+		OtherBuyURL      *string `json:"other_buy_url"`
+		Pages            *int    `json:"pages"`
+		ISBN             *string `json:"isbn"`
+		Featured         bool    `json:"featured"`
+		NewRelease       bool    `json:"new_release"`
+		ComingSoon       bool    `json:"coming_soon"`
+		EstimatedRelease *string `json:"estimated_release"`
+		ThemeColor       *string `json:"theme_color"`
+		SortOrder        int     `json:"sort_order"`
 	}
 	if err := c.ShouldBindJSON(&in); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -148,12 +150,12 @@ func CreateBook(c *gin.Context) {
 			title, slug, subtitle, description, cover_url,
 			genre, book_type, published, self_published, publisher,
 			published_at, amazon_url, goodreads_url, other_buy_url,
-			pages, isbn, featured, new_release, theme_color, sort_order
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			pages, isbn, featured, new_release, coming_soon, estimated_release, theme_color, sort_order
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		in.Title, slug, in.Subtitle, in.Description, in.CoverURL,
 		in.Genre, in.BookType, in.Published, in.SelfPublished, in.Publisher,
 		in.PublishedAt, in.AmazonURL, in.GoodreadsURL, in.OtherBuyURL,
-		in.Pages, in.ISBN, in.Featured, in.NewRelease, in.ThemeColor, in.SortOrder,
+		in.Pages, in.ISBN, in.Featured, in.NewRelease, in.ComingSoon, in.EstimatedRelease, in.ThemeColor, in.SortOrder,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -178,6 +180,7 @@ func UpdateBook(c *gin.Context) {
 		"publisher": true, "published_at": true, "amazon_url": true,
 		"goodreads_url": true, "other_buy_url": true, "pages": true,
 		"isbn": true, "featured": true, "new_release": true,
+		"coming_soon": true, "estimated_release": true,
 		"theme_color": true, "sort_order": true,
 	}
 

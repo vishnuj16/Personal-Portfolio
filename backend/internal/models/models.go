@@ -101,27 +101,29 @@ type Education struct {
 }
 
 type Book struct {
-	ID            int64     `json:"id"`
-	Title         string    `json:"title"`
-	Slug          string    `json:"slug"`
-	Subtitle      *string   `json:"subtitle"`
-	Description   *string   `json:"description"`
-	CoverURL      *string   `json:"cover_url"`
-	Genre         *string   `json:"genre"`     // "literary fiction", "thriller", "sci-fi", etc.
-	BookType      string    `json:"book_type"` // "novel" | "novella" | "short story" | "collection" | "non-fiction"
-	Published     bool      `json:"published"`
-	SelfPublished bool      `json:"self_published"`
-	Publisher     *string   `json:"publisher"`
-	PublishedAt   *string   `json:"published_at"` // YYYY-MM-DD
-	AmazonURL     *string   `json:"amazon_url"`
-	GoodreadsURL  *string   `json:"goodreads_url"`
-	OtherBuyURL   *string   `json:"other_buy_url"`
-	Pages         *int      `json:"pages"`
-	ISBN          *string   `json:"isbn"`
-	Featured      bool      `json:"featured"`
-	NewRelease    bool      `json:"new_release"` // shown in hero spotlight
-	ThemeColor    *string   `json:"theme_color"` // hex e.g. "#e63946" — drives hero + card accents
-	SortOrder     int       `json:"sort_order"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID               int64     `json:"id"`
+	Title            string    `json:"title"`
+	Slug             string    `json:"slug"`
+	Subtitle         *string   `json:"subtitle"`
+	Description      *string   `json:"description"`
+	CoverURL         *string   `json:"cover_url"`
+	Genre            *string   `json:"genre"`     // "literary fiction", "thriller", "sci-fi", etc.
+	BookType         string    `json:"book_type"` // "novel" | "novella" | "short story" | "collection" | "non-fiction"
+	Published        bool      `json:"published"`
+	SelfPublished    bool      `json:"self_published"`
+	Publisher        *string   `json:"publisher"`
+	PublishedAt      *string   `json:"published_at"` // YYYY-MM-DD
+	AmazonURL        *string   `json:"amazon_url"`
+	GoodreadsURL     *string   `json:"goodreads_url"`
+	OtherBuyURL      *string   `json:"other_buy_url"`
+	Pages            *int      `json:"pages"`
+	ISBN             *string   `json:"isbn"`
+	Featured         bool      `json:"featured"`
+	NewRelease       bool      `json:"new_release"`       // shown in hero spotlight
+	ComingSoon       bool      `json:"coming_soon"`       // work in progress / upcoming
+	EstimatedRelease *string   `json:"estimated_release"` // e.g. "2025 Q3" or "Late 2026"
+	ThemeColor       *string   `json:"theme_color"`       // hex e.g. "#e63946" — drives hero + card accents
+	SortOrder        int       `json:"sort_order"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
