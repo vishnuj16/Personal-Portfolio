@@ -98,7 +98,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
   const accent = values.theme_color || '#c9a84c'
 
   return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose() }} style={{
+    <div style={{
       position: 'fixed', inset: 0, zIndex: 10001,
       background: 'rgba(61,46,26,0.6)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',

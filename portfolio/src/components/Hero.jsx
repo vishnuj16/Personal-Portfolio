@@ -100,7 +100,7 @@ function SocialPill({ url, type }) {
         boxShadow: hovered ? `0 0 14px ${def.color}18` : 'none',
       }}
     >
-      <span style={{ color: hovered ? def.color : 'rgba(255,255,255,0.3)', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}>
+      <span style={{ color: hovered ? def.color : 'rgba(255,255,255,0.65)', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}>
         {def.icon}
       </span>
       {def.label}
@@ -512,7 +512,7 @@ export default function Hero() {
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f57' }} />
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#febc2e' }} />
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#28c840' }} />
-                <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.2)', fontSize: '0.72rem' }}>
+                <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.55)', fontSize: '0.72rem' }}>
                   zsh — {(profile.name || 'vishnu').toLowerCase()}@portfolio
                 </span>
               </div>
@@ -538,8 +538,9 @@ export default function Hero() {
         </div>
       </div>
 
-      {showEdit && (
+      {showEdit && profile && (
         <EditModal
+          key={showEdit ? 'open' : 'closed'}
           title="edit profile"
           fields={PROFILE_FIELDS}
           initialValues={profile}
@@ -555,7 +556,7 @@ function StatPip({ label, value, color }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       {color && <span style={{ width: 5, height: 5, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: color !== '#6b7280' ? `0 0 5px ${color}` : 'none' }} />}
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)' }}>{label}:</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'rgba(255,255,255,0.55)' }}>{label}:</span>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: color || 'rgba(255,255,255,0.4)' }}>{value}</span>
     </div>
   )

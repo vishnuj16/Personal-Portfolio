@@ -351,6 +351,13 @@ export default function AuthorPage({ onModeChange }) {
   }), [books, debouncedSearch, filterType, filterGenre])
 
   // ── Book detail page ────────────────────────────────────────────────────────
+  // ── Hero accent — must be defined BEFORE any early return (Rules of Hooks)
+  const heroAccent      = useMemo(() => newRelease?.theme_color || '#c9a84c', [newRelease?.theme_color])
+  const heroAccentLight = useMemo(() => isLight(heroAccent), [heroAccent])
+  const heroBg = useMemo(() => newRelease?.theme_color
+    ? `linear-gradient(160deg, ${darken(heroAccent, 0.72)} 0%, ${darken(heroAccent, 0.52)} 50%, #1a1410 100%)`
+    : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)', [heroAccent, newRelease?.theme_color])
+
   if (viewingBook) {
     return (
       <BookPage
@@ -359,13 +366,6 @@ export default function AuthorPage({ onModeChange }) {
       />
     )
   }
-
-  // ── Hero accent derived from new release theme colour ───────────────────────
-  const heroAccent      = useMemo(() => newRelease?.theme_color || '#c9a84c', [newRelease?.theme_color])
-  const heroAccentLight = useMemo(() => isLight(heroAccent), [heroAccent])
-  const heroBg = useMemo(() => newRelease?.theme_color
-    ? `linear-gradient(160deg, ${darken(heroAccent, 0.72)} 0%, ${darken(heroAccent, 0.52)} 50%, #1a1410 100%)`
-    : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)', [heroAccent, newRelease?.theme_color])
 
   const sectionPadding = { padding: '96px 48px' }
   const innerMax = { maxWidth: 1080, margin: '0 auto' }

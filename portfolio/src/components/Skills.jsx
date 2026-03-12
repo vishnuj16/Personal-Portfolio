@@ -240,7 +240,7 @@ export default function Skills() {
 
   return (
     <section id="skills" style={{ background: 'rgba(255,255,255,0.008)' }}>
-      <div style={{ padding: '100px 40px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ padding: '60px 40px', maxWidth: '1200px', margin: '0 auto' }}>
 
         {/* Section header */}
         <div style={{ marginBottom: '56px' }}>

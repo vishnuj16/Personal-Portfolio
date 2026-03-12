@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
+import { setToken, clearToken } from '../api'
 
 const AuthContext = createContext(null)
 
@@ -8,10 +9,12 @@ export function AuthProvider({ children }) {
   const [adminName, setAdminName]   = useState('')
 
   // Restore session from localStorage on mount
+  // Also restore the in-memory API token so admin requests work after a page refresh
   useEffect(() => {
     const token = localStorage.getItem('admin_token')
     const name  = localStorage.getItem('admin_name')
     if (token) {
+      setToken(token)          // restore in-memory token for api.js
       setIsAdmin(true)
       setAdminName(name || '')
     }
@@ -29,6 +32,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_name')
+    clearToken()               // clear in-memory token
     setIsAdmin(false)
     setIsEditMode(false)
     setAdminName('')

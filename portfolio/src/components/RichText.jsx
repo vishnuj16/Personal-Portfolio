@@ -6,8 +6,9 @@
  * Syntax (stored as plain string in DB):
  *   **bold**         → <strong>
  *   _italic_         → <em>
- *   # Heading        → large size (h-style)
- *   ## Subheading    → medium size
+ *   __underline__    → underline
+ *   # Heading        → large heading
+ *   ## Subheading    → medium heading
  *   ### Small head   → small-caps label
  *   - item           → unordered list item
  *   1. item          → ordered list item
@@ -19,45 +20,84 @@
  *   stripToPlain(text)                  → plain string for previews/cards
  */
 
-// ── Strip to plain text (for cards, short previews) ──────────────────────────
+import React from 'react'
+
+// ── Strip ALL markup syntax to clean plain text (for cards, previews) ─────────
+// Handles multiline spans: **text\n** _text\n_ etc.
 export function stripToPlain(text) {
   if (!text) return ''
   return text
+    // Remove headings
     .replace(/^#{1,3}\s+/gm, '')
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/__(.*?)__/g, '$1')
-    .replace(/_(.*?)_/g, '$1')
+    // Remove bold (including across newlines)
+    .replace(/\*\*([\s\S]*?)\*\*/g, '$1')
+    // Remove underline (including across newlines)
+    .replace(/__([\s\S]*?)__/g, '$1')
+    // Remove italic — only single underscores not preceded/followed by another underscore
+    .replace(/(?<![_*])_(?!_)([\s\S]*?)(?<!_)_(?![_*])/g, '$1')
+    // Remove list markers
     .replace(/^[-*]\s+/gm, '')
     .replace(/^\d+\.\s+/gm, '')
+    // Collapse multiple blank lines and newlines to single spaces
     .replace(/\n{2,}/g, ' ')
     .replace(/\n/g, ' ')
+    // Clean up any leftover lone markers that didn't match (malformed syntax)
+    .replace(/\*\*/g, '')
+    .replace(/(?<![_])\b__\b(?![_])/g, '')
     .trim()
 }
 
-// ── Parse a single line for inline bold/italic ────────────────────────────────
-function parseInline(text, key) {
+// ── Parse inline markup within a single segment of text ──────────────────────
+// Handles **bold**, __underline__, _italic_ — robust against edge cases
+function parseInline(text, keyPrefix) {
+  if (!text) return null
   const parts = []
-  // Split on **bold**, __underline__, _italic_
-  const re = /(\*\*[^*]+\*\*|__[^_]+__|_[^_]+_)/g
-  let last = 0, m, i = 0
+  // Order matters: check __ before _ to avoid greedy underscore matches
+  const re = /(\*\*[\s\S]*?\*\*|__[\s\S]*?__|(?<![_*])_(?!_)[\s\S]*?(?<!_)_(?![_*]))/g
+  let last = 0
+  let m
+  let i = 0
+
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) parts.push(<span key={`t${key}-${i++}`}>{text.slice(last, m.index)}</span>)
+    // Text before this match
+    if (m.index > last) {
+      parts.push(<span key={`${keyPrefix}-t${i++}`}>{text.slice(last, m.index)}</span>)
+    }
     const raw = m[0]
-    if (raw.startsWith('**')) parts.push(<strong key={`b${key}-${i++}`}>{raw.slice(2, -2)}</strong>)
-    else if (raw.startsWith('__')) parts.push(<span key={`u${key}-${i++}`} style={{ textDecoration: 'underline' }}>{raw.slice(2, -2)}</span>)
-    else parts.push(<em key={`e${key}-${i++}`}>{raw.slice(1, -1)}</em>)
+    if (raw.startsWith('**')) {
+      parts.push(<strong key={`${keyPrefix}-b${i++}`}>{raw.slice(2, -2)}</strong>)
+    } else if (raw.startsWith('__')) {
+      parts.push(
+        <span key={`${keyPrefix}-u${i++}`} style={{ textDecoration: 'underline' }}>
+          {raw.slice(2, -2)}
+        </span>
+      )
+    } else {
+      // italic _..._
+      parts.push(<em key={`${keyPrefix}-e${i++}`}>{raw.slice(1, -1)}</em>)
+    }
     last = m.index + raw.length
   }
-  if (last < text.length) parts.push(<span key={`t${key}-${i++}`}>{text.slice(last)}</span>)
-  return parts
+
+  // Remaining text
+  if (last < text.length) {
+    parts.push(<span key={`${keyPrefix}-t${i++}`}>{text.slice(last)}</span>)
+  }
+
+  return parts.length === 0 ? text : parts
 }
 
 // ── Render rich text as styled JSX ───────────────────────────────────────────
 export function renderRichText(text, baseStyle = {}) {
   if (!text) return null
-  const lines = text.split('\n')
+
+  // Pre-process: normalise line endings
+  const normalised = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const lines = normalised.split('\n')
   const nodes = []
-  let ulBuf = [], olBuf = [], key = 0
+  let ulBuf = []
+  let olBuf = []
+  let key = 0
 
   const flushUL = () => {
     if (!ulBuf.length) return
@@ -65,8 +105,8 @@ export function renderRichText(text, baseStyle = {}) {
       <ul key={`ul${key++}`} style={{ paddingLeft: 22, margin: '10px 0', listStyle: 'none' }}>
         {ulBuf.map((item, i) => (
           <li key={i} style={{ ...baseStyle, marginBottom: 6, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <span style={{ color: baseStyle.color || '#c9a84c', marginTop: 2, fontSize: '0.6em', lineHeight: 2 }}>◆</span>
-            <span>{parseInline(item, `ul${i}`)}</span>
+            <span style={{ color: baseStyle.accentColor || '#c9a84c', marginTop: 2, fontSize: '0.6em', lineHeight: 2, flexShrink: 0 }}>◆</span>
+            <span>{parseInline(item, `ul${key}-${i}`)}</span>
           </li>
         ))}
       </ul>
@@ -77,11 +117,11 @@ export function renderRichText(text, baseStyle = {}) {
   const flushOL = () => {
     if (!olBuf.length) return
     nodes.push(
-      <ol key={`ol${key++}`} style={{ paddingLeft: 22, margin: '10px 0', listStyle: 'none', counterReset: 'item' }}>
+      <ol key={`ol${key++}`} style={{ paddingLeft: 22, margin: '10px 0', listStyle: 'none' }}>
         {olBuf.map((item, i) => (
           <li key={i} style={{ ...baseStyle, marginBottom: 6, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', color: baseStyle.color || '#c9a84c', fontSize: '0.85em', minWidth: 18, flexShrink: 0 }}>{i + 1}.</span>
-            <span>{parseInline(item, `ol${i}`)}</span>
+            <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', color: baseStyle.accentColor || '#c9a84c', fontSize: '0.85em', minWidth: 18, flexShrink: 0 }}>{i + 1}.</span>
+            <span>{parseInline(item, `ol${key}-${i}`)}</span>
           </li>
         ))}
       </ol>
@@ -95,22 +135,34 @@ export function renderRichText(text, baseStyle = {}) {
     if (/^###\s+/.test(line)) {
       flushUL(); flushOL()
       nodes.push(
-        <div key={key++} style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.65rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: baseStyle.accentColor || '#c9a84c', marginTop: 20, marginBottom: 6 }}>
-          {parseInline(line.replace(/^###\s+/, ''), key)}
+        <div key={key++} style={{
+          fontFamily: "'Lora', Georgia, serif", fontSize: '0.65rem',
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          color: baseStyle.accentColor || '#c9a84c', marginTop: 20, marginBottom: 6,
+        }}>
+          {parseInline(line.replace(/^###\s+/, ''), `h3-${key}`)}
         </div>
       )
     } else if (/^##\s+/.test(line)) {
       flushUL(); flushOL()
       nodes.push(
-        <div key={key++} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.25rem', fontWeight: 700, color: baseStyle.headingColor || '#f5f0e8', marginTop: 24, marginBottom: 8, lineHeight: 1.3 }}>
-          {parseInline(line.replace(/^##\s+/, ''), key)}
+        <div key={key++} style={{
+          fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.25rem',
+          fontWeight: 700, color: baseStyle.headingColor || '#f5f0e8',
+          marginTop: 24, marginBottom: 8, lineHeight: 1.3,
+        }}>
+          {parseInline(line.replace(/^##\s+/, ''), `h2-${key}`)}
         </div>
       )
     } else if (/^#\s+/.test(line)) {
       flushUL(); flushOL()
       nodes.push(
-        <div key={key++} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.6rem', fontWeight: 900, color: baseStyle.headingColor || '#f5f0e8', marginTop: 28, marginBottom: 10, lineHeight: 1.15 }}>
-          {parseInline(line.replace(/^#\s+/, ''), key)}
+        <div key={key++} style={{
+          fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.6rem',
+          fontWeight: 900, color: baseStyle.headingColor || '#f5f0e8',
+          marginTop: 28, marginBottom: 10, lineHeight: 1.15,
+        }}>
+          {parseInline(line.replace(/^#\s+/, ''), `h1-${key}`)}
         </div>
       )
     } else if (/^[-*]\s+/.test(line)) {
@@ -126,11 +178,12 @@ export function renderRichText(text, baseStyle = {}) {
       flushUL(); flushOL()
       nodes.push(
         <p key={key++} style={{ ...baseStyle, margin: '0 0 4px', lineHeight: baseStyle.lineHeight || 1.9 }}>
-          {parseInline(line, key)}
+          {parseInline(line, `p-${key}`)}
         </p>
       )
     }
   }
+
   flushUL(); flushOL()
   return <>{nodes}</>
 }
@@ -154,8 +207,16 @@ function TBtn({ label, title, onClick, mono }) {
         transition: 'all 0.15s',
         lineHeight: 1,
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,168,76,0.04)'; e.currentTarget.style.color = '#9a8060'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.2)' }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'rgba(201,168,76,0.12)'
+        e.currentTarget.style.color = '#c9a84c'
+        e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'rgba(201,168,76,0.04)'
+        e.currentTarget.style.color = '#9a8060'
+        e.currentTarget.style.borderColor = 'rgba(201,168,76,0.2)'
+      }}
     >
       {label}
     </button>
@@ -166,19 +227,6 @@ function TBtn({ label, title, onClick, mono }) {
 export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
   const ref = React.useRef(null)
 
-  // Keyboard shortcut handler
-  const handleKeyDown = (e) => {
-    if (!e.ctrlKey && !e.metaKey) return
-    const key = e.key.toLowerCase()
-    if (key === 'b') { e.preventDefault(); wrap('**', '**') }
-    else if (key === 'i') { e.preventDefault(); wrap('_', '_') }
-    else if (key === 'u') { e.preventDefault(); wrap('__', '__') }
-    else if (key === '1') { e.preventDefault(); linePrefix('# ') }
-    else if (key === '2') { e.preventDefault(); linePrefix('## ') }
-    else if (key === '3') { e.preventDefault(); linePrefix('### ') }
-  }
-
-  // Wrap selection with prefix/suffix or add line prefix
   const wrap = (prefix, suffix = '') => {
     const el = ref.current
     if (!el) return
@@ -200,16 +248,28 @@ export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
     const lineEnd = v.indexOf('\n', s)
     const end = lineEnd === -1 ? v.length : lineEnd
     const line = v.slice(lineStart, end)
-    // Toggle: if already has prefix, remove it
     const newLine = line.startsWith(prefix) ? line.slice(prefix.length) : prefix + line
     const newVal = v.slice(0, lineStart) + newLine + v.slice(end)
     onChange(newVal)
-    setTimeout(() => { el.focus(); el.setSelectionRange(lineStart + newLine.length, lineStart + newLine.length) }, 0)
+    setTimeout(() => {
+      el.focus()
+      el.setSelectionRange(lineStart + newLine.length, lineStart + newLine.length)
+    }, 0)
+  }
+
+  const handleKeyDown = (e) => {
+    if (!e.ctrlKey && !e.metaKey) return
+    const k = e.key.toLowerCase()
+    if (k === 'b') { e.preventDefault(); wrap('**', '**') }
+    else if (k === 'i') { e.preventDefault(); wrap('_', '_') }
+    else if (k === 'u') { e.preventDefault(); wrap('__', '__') }
+    else if (k === '1') { e.preventDefault(); linePrefix('# ') }
+    else if (k === '2') { e.preventDefault(); linePrefix('## ') }
+    else if (k === '3') { e.preventDefault(); linePrefix('### ') }
   }
 
   return (
     <div>
-      {/* Toolbar */}
       <div style={{
         display: 'flex', gap: 5, flexWrap: 'wrap',
         padding: '8px 10px',
@@ -226,14 +286,17 @@ export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
         <TBtn label="H2" title="Medium heading  Ctrl+2" onClick={() => linePrefix('## ')} mono />
         <TBtn label="H3" title="Small label  Ctrl+3" onClick={() => linePrefix('### ')} mono />
         <div style={{ width: 1, background: 'rgba(201,168,76,0.15)', margin: '2px 3px' }} />
-        <TBtn label="• List" title="Bullet list (- item)" onClick={() => linePrefix('- ')} />
-        <TBtn label="1. List" title="Numbered list (1. item)" onClick={() => linePrefix('1. ')} />
+        <TBtn label="• List" title="Bullet list" onClick={() => linePrefix('- ')} />
+        <TBtn label="1. List" title="Numbered list" onClick={() => linePrefix('1. ')} />
         <div style={{ flex: 1 }} />
-        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', color: 'rgba(107,92,69,0.38)', fontStyle: 'italic', alignSelf: 'center', paddingRight: 4 }}>
+        <span style={{
+          fontFamily: "'Lora', serif", fontSize: '0.6rem',
+          color: 'rgba(107,92,69,0.38)', fontStyle: 'italic',
+          alignSelf: 'center', paddingRight: 4,
+        }}>
           Ctrl+B/I/U · Ctrl+1/2/3
         </span>
       </div>
-      {/* Textarea */}
       <textarea
         ref={ref}
         value={value}
@@ -261,6 +324,3 @@ export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
     </div>
   )
 }
-
-// Make React available (imported from parent bundle)
-import React from 'react'

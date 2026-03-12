@@ -263,7 +263,7 @@ export default function Projects() {
         setActiveIdx(i => (i + 1) % filtered.length)
         setPhase('in')
       }, 280)
-    }, 6000)
+    }, 10000)
   }, [filtered.length])
 
   useEffect(() => {
@@ -287,7 +287,7 @@ export default function Projects() {
 
   return (
     <section id="projects">
-      <div style={{ padding: '100px 40px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ padding: '60px 40px', maxWidth: 1280, margin: '0 auto' }}>
 
         {/* Section header */}
         <div style={{ marginBottom: 48 }}>

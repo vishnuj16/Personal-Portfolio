@@ -14,6 +14,31 @@
   --font-mono: 'JetBrains Mono', monospace;
   --font-sans: 'Space Grotesk', sans-serif;
 }
+/* ─── Paste this into your global CSS (index.css / App.css) to replace existing :root vars ─── */
+/* Replace or add these inside your existing :root { } block */
+
+:root {
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Background */
+  --bg-primary:   #030712;
+  --bg-secondary: #0a0f1e;
+  --card-bg:      #0d1117;
+  --card-border:  rgba(0, 229, 255, 0.08);
+
+  /* Text — bumped up for better readability */
+  --text-primary:   rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.75);   /* was ~0.5, now clearly visible */
+  --text-muted:     rgba(255, 255, 255, 0.55);   /* was ~0.35, now readable */
+
+  /* Accent */
+  --cyan:  #00e5ff;
+  --green: #00ff87;
+
+  /* Glow */
+  --glow-cyan:  0 0 20px rgba(0, 229, 255, 0.35);
+}
 
 *, *::before, *::after {
   box-sizing: border-box;

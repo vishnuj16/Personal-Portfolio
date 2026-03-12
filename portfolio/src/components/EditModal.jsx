@@ -495,7 +495,7 @@ export default function EditModal({
         background: 'rgba(3,7,18,0.92)', backdropFilter: 'blur(10px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
       }}
-      onClick={e => e.target === e.currentTarget && onClose()}
+
     >
       <div style={{
         width: '100%', maxWidth: '560px', maxHeight: '90vh',

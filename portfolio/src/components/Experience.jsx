@@ -87,7 +87,7 @@ export default function Experience() {
 
   return (
     <section id="experience">
-      <div style={{ padding: '100px 40px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ padding: '60px 40px', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ marginBottom: '48px' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--cyan)', letterSpacing: '0.15em', marginBottom: '8px' }}>
             <span style={{ color: 'var(--text-muted)' }}>$ git</span> log --experience
