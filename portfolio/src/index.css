@@ -212,3 +212,44 @@ input, textarea, select {
   from { transform: rotate(0deg) }
   to   { transform: rotate(360deg) }
 }
+
+/* ─── Add these keyframes to your global CSS (index.css / App.css) ─────────
+   Required by view modals (ProjectViewModal, ExperienceViewModal, EducationViewModal)
+   and the EditModal fadeInUp animation. ──────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bellPulse {
+  0%, 100% { box-shadow: 0 0 4px #e8a030; opacity: 1; }
+  50%       { box-shadow: 0 0 10px #e8a030, 0 0 20px rgba(232,160,48,0.4); opacity: 0.7; }
+}
+
+@keyframes annCardHover {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-3px); }
+}

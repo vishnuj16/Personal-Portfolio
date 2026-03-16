@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -86,6 +87,9 @@ func main() {
 		// Books — public
 		api.GET("/books", handlers.GetBooks)
 		api.GET("/books/:slug", handlers.GetBook)
+
+		//Announcements public
+		api.GET("/announcements", handlers.GetAnnouncements)
 	}
 
 	// ─── Admin API (JWT-protected) ───────────────────────────────────────────
@@ -135,7 +139,21 @@ func main() {
 		admin.POST("/books/set-new-release", handlers.SetNewRelease) // must be before :id route
 		admin.PATCH("/books/:id", handlers.UpdateBook)
 		admin.DELETE("/books/:id", handlers.DeleteBook)
+
+		//Announcemtns - admin
+		admin.POST("/announcements", handlers.CreateAnnouncement)
+		admin.PATCH("/announcements/:id", handlers.UpdateAnnouncement)
+		admin.DELETE("/announcements/:id", handlers.DeleteAnnouncement)
 	}
+
+	// Serve the React SPA for all non-API routes (enables deep linking)
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+			c.JSON(404, gin.H{"error": "not found"})
+			return
+		}
+		c.File("./dist/index.html") // path to your built frontend
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {

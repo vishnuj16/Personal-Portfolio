@@ -9,6 +9,8 @@ import BookPage from './BookPage'
 import FeaturedBooksModal from './FeaturedBooksModal'
 import NewReleaseModal from './NewReleaseModal'
 import { stripToPlain } from './RichText'
+import AnnouncementPage from './AnnouncementPage'
+import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../api'
 
 // ─── Google Fonts (injected once) ────────────────────────────────────────────
 function injectFonts() {
@@ -209,10 +211,11 @@ const BookCard = memo(function BookCard({ book, isEditMode, onEdit, onDelete, on
           }}>{book.description}</p>
         )}
         {!isEditMode && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {book.amazon_url && <BuyLink href={book.amazon_url} accent={accent}>Amazon</BuyLink>}
             {book.goodreads_url && <BuyLink href={book.goodreads_url} accent={accent} secondary>Goodreads</BuyLink>}
             {book.other_buy_url && <BuyLink href={book.other_buy_url} accent={accent} secondary>Buy Direct</BuyLink>}
+            <BookShareBtn slug={book.slug} title={book.title} accent={accent} compact />
           </div>
         )}
       </div>
@@ -243,6 +246,102 @@ function BuyLink({ href, children, secondary, accent }) {
   )
 }
 
+
+// ── BookShareBtn ─────────────────────────────────────────────────────────────
+function BookShareBtn({ slug, title, accent = '#c9a84c', compact = false }) {
+  const [copied, setCopied] = useState(false)
+  const [hovered, setHovered] = useState(false)
+
+  const getUrl = () => `${window.location.origin}/book/${slug}`
+
+  const handleShare = async (e) => {
+    e.stopPropagation()
+    const url = getUrl()
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url, text: `Check out "${title}"` })
+        return
+      } catch (_) { /* fallback to copy */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2200)
+    } catch (_) {}
+  }
+
+  if (compact) {
+    return (
+      <button
+        onClick={handleShare}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        title={copied ? 'Link copied!' : 'Share this book'}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontFamily: "'Lora', Georgia, serif", fontSize: '0.72rem',
+          padding: '5px 10px', borderRadius: 6,
+          background: copied ? rgba(accent, 0.15) : hovered ? rgba(accent, 0.08) : 'transparent',
+          border: `1px solid ${copied ? rgba(accent, 0.5) : rgba(accent, 0.22)}`,
+          color: copied ? accent : hovered ? accent : '#9a8060',
+          cursor: 'pointer', transition: 'all 0.2s',
+          flexShrink: 0,
+        }}
+      >
+        {copied ? (
+          <><CheckIcon size={11} color={accent} /> <span>Copied!</span></>
+        ) : (
+          <><ShareIcon size={11} color={hovered ? accent : '#9a8060'} /> <span>Share</span></>
+        )}
+      </button>
+    )
+  }
+
+  // Full size (used in BookPage)
+  return (
+    <button
+      onClick={handleShare}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        fontFamily: "'Lora', Georgia, serif", fontSize: '0.85rem',
+        padding: '10px 20px', borderRadius: 8,
+        background: copied ? rgba(accent, 0.18) : hovered ? rgba(accent, 0.12) : rgba(accent, 0.07),
+        border: `1px solid ${copied ? rgba(accent, 0.6) : rgba(accent, 0.3)}`,
+        color: copied ? accent : hovered ? accent : '#9a8060',
+        cursor: 'pointer', transition: 'all 0.2s',
+        boxShadow: hovered ? `0 4px 20px ${rgba(accent, 0.15)}` : 'none',
+      }}
+    >
+      {copied ? (
+        <><CheckIcon size={14} color={accent} /> Link copied!</>
+      ) : (
+        <><ShareIcon size={14} color={hovered ? accent : '#9a8060'} /> Share this book</>
+      )}
+    </button>
+  )
+}
+
+function ShareIcon({ size = 16, color = '#9a8060' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+      <circle cx="18" cy="5" r="3" stroke={color} strokeWidth="1.6" />
+      <circle cx="6" cy="12" r="3" stroke={color} strokeWidth="1.6" />
+      <circle cx="18" cy="19" r="3" stroke={color} strokeWidth="1.6" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CheckIcon({ size = 16, color = '#c9a84c' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+      <polyline points="20 6 9 17 4 12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 // ─── Section headers ──────────────────────────────────────────────────────────
 function SectionHeader({ eyebrow, title, subtitle }) {
@@ -290,7 +389,7 @@ function AuthorTaglineEditor({ value, onSave }) {
 }
 
 // ─── Main AuthorPage ──────────────────────────────────────────────────────────
-export default function AuthorPage({ onModeChange }) {
+export default function AuthorPage({ onModeChange, initialBookSlug = null, onNavigate }) {
   const { isAdmin, isEditMode } = useAuth()
   const [books, setBooks] = useState([])
   const [profile, setProfile] = useState(null)
@@ -301,16 +400,30 @@ export default function AuthorPage({ onModeChange }) {
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterGenre, setFilterGenre] = useState('')
-  const [viewingBook, setViewingBook] = useState(null)   // book detail navigation
+  const [viewingBook, setViewingBook]   = useState(null)   // book detail navigation
+  const [pendingSlug, setPendingSlug]   = useState(initialBookSlug)  // deep-link slug to resolve
   const [showFeaturedModal, setShowFeaturedModal] = useState(false)
   const [showNewReleaseModal, setShowNewReleaseModal] = useState(false)
+  const [announcements, setAnnouncements]         = useState([])
+  const [viewingAnn, setViewingAnn]               = useState(null)
   const adminOffset = isAdmin ? 37 : 0
 
   useEffect(() => { injectFonts() }, [])
 
   useEffect(() => {
     Promise.all([getBooks(), getProfile()])
-      .then(([b, p]) => { setBooks(b || []); setProfile(p) })
+      .then(([b, p]) => {
+      const bks = b || []
+      setBooks(bks)
+      setProfile(p)
+      // Resolve deep-link slug now that we have books
+      if (pendingSlug) {
+        const found = bks.find(x => x.slug === pendingSlug)
+        if (found) openBook(found)
+        setPendingSlug(null)
+      }
+    })
+    getAnnouncements().then(a => setAnnouncements(a || [])).catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
@@ -358,11 +471,39 @@ export default function AuthorPage({ onModeChange }) {
     ? `linear-gradient(160deg, ${darken(heroAccent, 0.72)} 0%, ${darken(heroAccent, 0.52)} 50%, #1a1410 100%)`
     : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)', [heroAccent, newRelease?.theme_color])
 
+  // Push URL when opening a book, pop it when going back
+  const openBook = (book) => {
+    setViewingBook(book)
+    if (onNavigate) onNavigate(`/book/${book.slug}`)
+    else window.history.pushState({ bookSlug: book.slug }, '', `/book/${book.slug}`)
+  }
+  const closeBook = () => {
+    setViewingBook(null)
+    if (onNavigate) onNavigate('/author')
+    else window.history.pushState({}, '', '/author')
+    setTimeout(() => window.scrollTo(0, 0), 50)
+  }
+
   if (viewingBook) {
     return (
       <BookPage
         book={viewingBook}
-        onBack={() => { setViewingBook(null); setTimeout(() => window.scrollTo(0,0), 50) }}
+        onBack={closeBook}
+      />
+    )
+  }
+
+  if (viewingAnn) {
+    return (
+      <AnnouncementPage
+        announcement={viewingAnn}
+        onBack={() => { setViewingAnn(null); setTimeout(() => window.scrollTo(0,0), 50) }}
+        onUpdated={(updated) => {
+          // Sync both the viewing state and the list
+          setViewingAnn(updated)
+          setAnnouncements(a => a.map(x => x.id === updated.id ? updated : x))
+        }}
+        onDeleted={(id) => { setViewingAnn(null); setAnnouncements(a => a.filter(x => x.id !== id)) }}
       />
     )
   }
@@ -373,7 +514,14 @@ export default function AuthorPage({ onModeChange }) {
   return (
     <div style={{ fontFamily: "'Lora', Georgia, serif", background: '#f5f0e8', minHeight: '100vh', color: '#3d2e1a' }}>
       <AuthorAdminBanner />
-      <AuthorNavbar adminOffset={adminOffset} currentMode="author" onModeChange={onModeChange} authorName={profile?.name} />
+      <AuthorNavbar
+        adminOffset={adminOffset}
+        currentMode="author"
+        onModeChange={onModeChange}
+        authorName={profile?.name}
+        latestAnnouncement={announcements[0] || null}
+        onAnnouncementClick={setViewingAnn}
+      />
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section id="author-hero" style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', background: heroBg }}>
@@ -440,7 +588,7 @@ export default function AuthorPage({ onModeChange }) {
                 {newRelease.subtitle && <div style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.05rem', color: 'rgba(245,240,232,0.6)', marginBottom: 24, lineHeight: 1.5 }}>{newRelease.subtitle}</div>}
                 {newRelease.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.95rem', color: 'rgba(245,240,232,0.7)', lineHeight: 1.8, marginBottom: 36, maxWidth: 440 }}>{stripToPlain(newRelease.description).slice(0, 220)}{stripToPlain(newRelease.description).length > 220 ? '…' : ''}</p>}
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
-                  <button onClick={() => setViewingBook(newRelease)} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.9rem', fontWeight: 600, padding: '13px 32px', borderRadius: 8, background: heroAccent, color: heroAccentLight ? '#1a1410' : '#f5f0e8', border: 'none', cursor: 'pointer', boxShadow: `0 4px 20px ${rgba(heroAccent, 0.4)}`, transition: 'all 0.2s' }}
+                  <button onClick={() => openBook(newRelease)} style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.9rem', fontWeight: 600, padding: '13px 32px', borderRadius: 8, background: heroAccent, color: heroAccentLight ? '#1a1410' : '#f5f0e8', border: 'none', cursor: 'pointer', boxShadow: `0 4px 20px ${rgba(heroAccent, 0.4)}`, transition: 'all 0.2s' }}
                     onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 32px ${rgba(heroAccent, 0.6)}` }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 4px 20px ${rgba(heroAccent, 0.4)}` }}>
                     Discover the Book
@@ -465,7 +613,7 @@ export default function AuthorPage({ onModeChange }) {
               </div>
 
               {/* Cover — clickable */}
-              <div onClick={() => setViewingBook(newRelease)} style={{ display: 'flex', justifyContent: 'center', animation: 'fadeInUp 0.8s ease 0.15s both', cursor: 'pointer' }}>
+              <div onClick={() => openBook(newRelease)} style={{ display: 'flex', justifyContent: 'center', animation: 'fadeInUp 0.8s ease 0.15s both', cursor: 'pointer' }}>
                 {newRelease.cover_url ? (
                   <div style={{ position: 'relative', filter: `drop-shadow(0 24px 60px rgba(0,0,0,0.5)) drop-shadow(0 4px 16px ${rgba(heroAccent, 0.3)})` }}>
                     <img src={imgUrl(newRelease.cover_url)} alt={newRelease.title}
@@ -596,6 +744,22 @@ export default function AuthorPage({ onModeChange }) {
 
       {/* ── COMING SOON ───────────────────────────────────────────────────── */}
       <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} onView={setViewingBook} />
+
+      {/* ── ANNOUNCEMENTS ─────────────────────────────────────────────────── */}
+      <AnnouncementsSection
+        announcements={announcements}
+        isEditMode={isEditMode}
+        onView={setViewingAnn}
+        onAdd={async (data) => {
+          const created = await createAnnouncement(data)
+          setAnnouncements(a => [created, ...a])
+          setViewingAnn(created)
+        }}
+        onDelete={async (id) => {
+          await deleteAnnouncement(id)
+          setAnnouncements(a => a.filter(x => x.id !== id))
+        }}
+      />
 
       {/* ── CONTACT ───────────────────────────────────────────────────────── */}
       <section id="author-contact" style={{ ...sectionPadding, background: '#fdf8f0' }}>
@@ -1403,3 +1567,348 @@ const ComingSoonCard = memo(function ComingSoonCard({ book, index, isEditMode, o
     </div>
   )
 }) // end ComingSoonCard memo
+
+// ── AnnouncementsSection ──────────────────────────────────────────────────────
+const AMBER        = '#e8a030'
+const AMBER_DIM    = 'rgba(232,160,48,0.10)'
+const AMBER_BORDER = 'rgba(232,160,48,0.28)'
+const ANN_BG       = '#1c1408'   // very dark warm ink for the section bg
+
+function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDelete }) {
+  const [creating, setCreating]   = useState(false)
+  const [newTitle, setNewTitle]   = useState('')
+  const [newBody,  setNewBody]    = useState('')
+  const [newPinned, setNewPinned] = useState(false)
+  const [saving,   setSaving]     = useState(false)
+  const [err,      setErr]        = useState('')
+
+  const handleCreate = async () => {
+    if (!newTitle.trim()) { setErr('Title is required'); return }
+    setSaving(true); setErr('')
+    try {
+      await onAdd({ title: newTitle.trim(), body: newBody, pinned: newPinned })
+      setNewTitle(''); setNewBody(''); setNewPinned(false)
+      setCreating(false)
+    } catch (e) { setErr(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const cancelCreate = () => {
+    setNewTitle(''); setNewBody(''); setNewPinned(false)
+    setCreating(false); setErr('')
+  }
+
+  return (
+    <section id="author-announcements" style={{
+      background: ANN_BG,
+      padding: '80px 48px',
+      borderTop: `1px solid ${AMBER_BORDER}`,
+    }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+
+        {/* Section header */}
+        <div style={{ textAlign: 'center', marginBottom: 52 }}>
+          {/* Alert icon + eyebrow */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${AMBER_BORDER})`, maxWidth: 120 }} />
+            <AnnAlertIcon size={22} color={AMBER} />
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${AMBER_BORDER})`, maxWidth: 120 }} />
+          </div>
+          <div style={{
+            fontFamily: "'Lora', Georgia, serif", fontSize: '0.7rem',
+            letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: AMBER, opacity: 0.8, marginBottom: 10,
+          }}>
+            From the Desk
+          </div>
+          <h2 style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 900,
+            color: '#f5f0e8', letterSpacing: '-0.01em', margin: 0,
+          }}>
+            Announcements
+          </h2>
+          <p style={{
+            fontFamily: "'Lora', Georgia, serif", fontSize: '0.92rem',
+            color: 'rgba(245,240,232,0.45)', fontStyle: 'italic',
+            marginTop: 12, lineHeight: 1.6,
+          }}>
+            News, updates, and words from the author.
+          </p>
+        </div>
+
+        {/* Edit mode — new announcement composer */}
+        {isEditMode && !creating && (
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <button
+              onClick={() => setCreating(true)}
+              style={{
+                background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}`,
+                color: AMBER, padding: '10px 28px', borderRadius: 8,
+                fontFamily: "'Lora', Georgia, serif", fontSize: '0.88rem',
+                cursor: 'pointer', transition: 'all 0.2s',
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,160,48,0.18)'; e.currentTarget.style.borderColor = 'rgba(232,160,48,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = AMBER_DIM; e.currentTarget.style.borderColor = AMBER_BORDER }}
+            >
+              <AnnAlertIcon size={14} color={AMBER} />
+              + New Announcement
+            </button>
+          </div>
+        )}
+
+        {/* Composer panel */}
+        {isEditMode && creating && (
+          <div style={{
+            background: '#221a0a',
+            border: `1px solid ${AMBER_BORDER}`,
+            borderRadius: 12, padding: '28px 32px',
+            marginBottom: 40,
+            boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px ${AMBER_DIM}`,
+          }}>
+            <div style={{
+              fontFamily: "'Playfair Display', serif", fontSize: '1rem', fontWeight: 700,
+              color: '#f5f0e8', marginBottom: 20,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <AnnAlertIcon size={16} color={AMBER} /> New Announcement
+            </div>
+
+            {/* Title */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: AMBER, marginBottom: 7 }}>
+                Title *
+              </label>
+              <input
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                placeholder="What are you announcing?"
+                autoFocus
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: '#1a1208', border: `1px solid ${AMBER_BORDER}`,
+                  borderRadius: 7, padding: '10px 14px',
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: '1.1rem', fontWeight: 700, color: '#f5f0e8',
+                  outline: 'none',
+                }}
+                onFocus={e => e.target.style.borderColor = AMBER}
+                onBlur={e => e.target.style.borderColor = AMBER_BORDER}
+              />
+            </div>
+
+            {/* Pinned */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 16 }}>
+              <input type="checkbox" checked={newPinned} onChange={e => setNewPinned(e.target.checked)} style={{ accentColor: AMBER }} />
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.82rem', color: 'rgba(245,240,232,0.55)' }}>
+                📌 Pin this (shows first, appears in bell dropdown)
+              </span>
+            </label>
+
+            {/* Body */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: AMBER, marginBottom: 7 }}>
+                Body <span style={{ opacity: 0.5, textTransform: 'none', letterSpacing: 0 }}>(optional — you can add this from the announcement page later)</span>
+              </label>
+              <AnnComposerTextarea value={newBody} onChange={setNewBody} />
+            </div>
+
+            {err && (
+              <div style={{ color: 'rgba(220,80,60,0.9)', fontSize: '0.8rem', background: 'rgba(220,60,60,0.1)', border: '1px solid rgba(220,60,60,0.3)', borderRadius: 6, padding: '8px 12px', marginBottom: 16 }}>
+                ✗ {err}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={handleCreate} disabled={saving}
+                style={{
+                  background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}`,
+                  color: AMBER, padding: '9px 24px', borderRadius: 7,
+                  fontFamily: "'Lora', serif", fontSize: '0.85rem', cursor: 'pointer',
+                  opacity: saving ? 0.6 : 1, transition: 'all 0.15s',
+                }}
+              >
+                {saving ? 'Posting…' : '✓ Post Announcement'}
+              </button>
+              <button
+                onClick={cancelCreate}
+                style={{
+                  background: 'transparent', border: '1px solid rgba(245,240,232,0.12)',
+                  color: 'rgba(245,240,232,0.4)', padding: '9px 18px', borderRadius: 7,
+                  fontFamily: "'Lora', serif", fontSize: '0.85rem', cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Cards grid ── */}
+        {announcements.length === 0 && !isEditMode && (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(245,240,232,0.25)', fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.9rem' }}>
+            No announcements yet.
+          </div>
+        )}
+
+        {announcements.length === 0 && isEditMode && !creating && (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(245,240,232,0.25)', fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.85rem' }}>
+            No announcements yet — create one above.
+          </div>
+        )}
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: 20,
+        }}>
+          {announcements.map((ann, i) => (
+            <AnnCard
+              key={ann.id}
+              ann={ann}
+              index={i}
+              isEditMode={isEditMode}
+              onView={onView}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Individual announcement card ──────────────────────────────────────────────
+const AnnCard = memo(function AnnCard({ ann, index, isEditMode, onView, onDelete }) {
+  const [hovered, setHovered] = useState(false)
+
+  const date = new Date(ann.created_at).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onView(ann)}
+      style={{
+        background: hovered ? '#2a1e0c' : '#221508',
+        border: `1px solid ${hovered ? 'rgba(232,160,48,0.45)' : AMBER_BORDER}`,
+        borderRadius: 10, overflow: 'hidden',
+        cursor: 'pointer', position: 'relative',
+        transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
+        boxShadow: hovered
+          ? `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,160,48,0.1)`
+          : '0 2px 12px rgba(0,0,0,0.3)',
+        transition: 'all 0.25s ease',
+      }}
+    >
+      {/* Amber top bar */}
+      <div style={{
+        height: 3,
+        background: `linear-gradient(90deg, ${AMBER}, rgba(232,160,48,0.2))`,
+        opacity: hovered ? 1 : 0.55,
+        transition: 'opacity 0.25s',
+      }} />
+
+      <div style={{ padding: '20px 22px 22px' }}>
+        {/* Alert badge + pinned */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}`,
+            borderRadius: 20, padding: '3px 10px',
+          }}>
+            <AnnAlertIcon size={10} color={AMBER} />
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: AMBER }}>
+              Announcement
+            </span>
+          </div>
+          {ann.pinned && <span style={{ fontSize: '0.72rem' }}>📌</span>}
+        </div>
+
+        {/* Title — the main label */}
+        <h3 style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: '1.05rem', fontWeight: 700,
+          color: '#f5f0e8', lineHeight: 1.35,
+          margin: '0 0 14px', letterSpacing: '-0.005em',
+        }}>
+          {ann.title}
+        </h3>
+
+        {/* Date + read cue */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{
+            fontFamily: "'Lora', serif", fontSize: '0.68rem',
+            fontStyle: 'italic', color: 'rgba(245,240,232,0.35)',
+          }}>
+            {date}
+          </span>
+          <span style={{
+            fontFamily: "'Lora', serif", fontSize: '0.68rem',
+            color: hovered ? AMBER : 'rgba(232,160,48,0.4)',
+            transition: 'color 0.2s',
+          }}>
+            Read →
+          </span>
+        </div>
+
+        {/* Admin delete */}
+        {isEditMode && (
+          <button
+            onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${ann.title}"?`)) onDelete(ann.id) }}
+            style={{
+              position: 'absolute', top: 12, right: 12,
+              background: 'rgba(220,60,60,0.08)', border: '1px solid rgba(220,60,60,0.25)',
+              color: 'rgba(220,80,60,0.6)', width: 26, height: 26,
+              borderRadius: '50%', cursor: 'pointer', fontSize: '0.65rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,60,60,0.18)'; e.currentTarget.style.color = 'rgba(220,80,60,0.9)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220,60,60,0.08)'; e.currentTarget.style.color = 'rgba(220,80,60,0.6)' }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  )
+})
+
+// ── Simple amber-themed textarea for composer (no toolbar needed in quick create) ─
+function AnnComposerTextarea({ value, onChange }) {
+  return (
+    <textarea
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      rows={5}
+      placeholder="Optional body text — you can write the full announcement from the announcement page after posting."
+      style={{
+        width: '100%', boxSizing: 'border-box',
+        background: '#1a1208', border: `1px solid ${AMBER_BORDER}`,
+        borderRadius: 7, padding: '10px 14px',
+        fontFamily: "'Lora', Georgia, serif",
+        fontSize: '0.88rem', color: '#f5f0e8', lineHeight: 1.75,
+        outline: 'none', resize: 'vertical',
+        transition: 'border-color 0.2s',
+      }}
+      onFocus={e => e.target.style.borderColor = AMBER}
+      onBlur={e => e.target.style.borderColor = AMBER_BORDER}
+    />
+  )
+}
+
+// ── Alert triangle icon (local, matches amber theme) ─────────────────────────
+function AnnAlertIcon({ size = 20, color = '#e8a030' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+      <path d="M12 2.5L2.5 20.5h19L12 2.5z" stroke={color} strokeWidth="1.4" strokeLinejoin="round" fill={`${color}15`} />
+      <line x1="12" y1="9.5" x2="12" y2="14.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="12" cy="17.2" r="0.85" fill={color} />
+    </svg>
+  )
+}

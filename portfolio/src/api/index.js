@@ -115,3 +115,9 @@ export const updateBook = (id, data) => req('PATCH', `/api/admin/books/${id}`, d
 export const deleteBook = (id) => req('DELETE', `/api/admin/books/${id}`, null, true)
 export const setFeaturedBooks = (ids) => req('POST', '/api/admin/books/set-featured', { ids }, true)
 export const setNewRelease = (id) => req('POST', '/api/admin/books/set-new-release', { id }, true)
+
+// Announcements
+export const getAnnouncements = () => req('GET', '/api/announcements')
+export const createAnnouncement = (data) => req('POST', '/api/admin/announcements', data, true)
+export const updateAnnouncement = (id, data) => req('PATCH', `/api/admin/announcements/${id}`, data, true)
+export const deleteAnnouncement = (id) => req('DELETE', `/api/admin/announcements/${id}`, null, true)

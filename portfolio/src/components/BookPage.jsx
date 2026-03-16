@@ -325,10 +325,11 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
             )}
 
             {/* CTA buttons */}
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 36 }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 36, alignItems: 'center' }}>
               <BuyButton href={book.amazon_url} label="Get on Amazon" primary accent={accent} />
               <BuyButton href={book.goodreads_url} label="Goodreads" accent={accent} />
               <BuyButton href={book.other_buy_url} label="Buy Direct" accent={accent} />
+              <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} />
             </div>
 
             {/* Stats */}
@@ -505,10 +506,11 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
               Find {book.title} at your preferred retailer or order direct.
             </p>
 
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
               <BuyButton href={book.amazon_url} label="Amazon" primary accent={accent} />
               <BuyButton href={book.goodreads_url} label="Goodreads" accent={accent} />
               <BuyButton href={book.other_buy_url} label="Buy Direct" accent={accent} />
+              <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} />
             </div>
           </div>
         </section>
@@ -560,7 +562,8 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
   return (
     <div style={{ fontFamily: "'Lora', Georgia, serif", background: '#0e0b06', color: '#f5f0e8', minHeight: '100vh' }}>
 
-      {/* Back button */}
+      {/* Back + Share buttons */}
+      <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} fixed />
       {onBack && (
         <button onClick={onBack} style={{
           position: 'fixed', top: 24, left: 28, zIndex: 100,
@@ -731,5 +734,71 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
         @keyframes gemPulse { 0%,100% { transform:scale(1); opacity:0.6; } 50% { transform:scale(1.6); opacity:1; } }
       `}</style>
     </div>
+  )
+}
+
+// ── BookPageShareBtn ────────────────────────────────────────────────────────────
+// Used inside BookPage — self-contained with its own rgba helper reference
+function BookPageShareBtn({ slug, title, accent = '#c9a84c', fixed = false }) {
+  const [copied,  setCopied]  = useState(false)
+  const [hovered, setHovered] = useState(false)
+
+  const getUrl = () => `${window.location.origin}/book/${slug}`
+
+  const handleShare = async (e) => {
+    e.stopPropagation()
+    const url = getUrl()
+    if (navigator.share) {
+      try { await navigator.share({ title, url, text: `Check out "${title}"` }); return }
+      catch (_) { /* fallback */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2200)
+    } catch (_) {}
+  }
+
+  const light = isLight(accent)
+
+  return (
+    <button
+      onClick={handleShare}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...(fixed ? { position: 'fixed', top: 24, right: 28, zIndex: 100 } : {}),
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        fontFamily: "'Lora', Georgia, serif", fontSize: '0.85rem',
+        padding: '10px 20px', borderRadius: 8, cursor: 'pointer',
+        background: copied
+          ? rgba(accent, 0.2)
+          : hovered ? rgba(accent, 0.12) : rgba(accent, 0.06),
+        border: `1px solid ${copied ? rgba(accent, 0.65) : rgba(accent, 0.28)}`,
+        color: copied ? accent : hovered ? accent : 'rgba(245,240,232,0.55)',
+        transition: 'all 0.2s',
+        boxShadow: hovered && !copied ? `0 4px 20px ${rgba(accent, 0.18)}` : 'none',
+      }}
+    >
+      {copied ? (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <polyline points="20 6 9 17 4 12" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Link copied!
+        </>
+      ) : (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.6" />
+            <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+            <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.6" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          Share
+        </>
+      )}
+    </button>
   )
 }

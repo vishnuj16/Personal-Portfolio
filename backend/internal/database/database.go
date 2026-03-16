@@ -177,6 +177,15 @@ func migrate() {
 		"ALTER TABLE profile ADD COLUMN phone TEXT",
 		"ALTER TABLE profile ADD COLUMN author_tagline TEXT",
 		"ALTER TABLE profile ADD COLUMN dev_bio TEXT",
+		// Announcements table
+		`CREATE TABLE IF NOT EXISTS announcements (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			title      TEXT    NOT NULL DEFAULT '',
+			body       TEXT    NOT NULL DEFAULT '',
+			pinned     INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 		"ALTER TABLE profile ADD COLUMN author_bio TEXT",
 		"ALTER TABLE books ADD COLUMN theme_color TEXT",
 		"ALTER TABLE books ADD COLUMN coming_soon INTEGER DEFAULT 0",

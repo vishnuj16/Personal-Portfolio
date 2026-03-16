@@ -35,6 +35,8 @@ export function stripToPlain(text) {
     .replace(/__([\s\S]*?)__/g, '$1')
     // Remove italic — only single underscores not preceded/followed by another underscore
     .replace(/(?<![_*])_(?!_)([\s\S]*?)(?<!_)_(?![_*])/g, '$1')
+    // Remove link syntax [text](url) → just keep text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     // Remove list markers
     .replace(/^[-*]\s+/gm, '')
     .replace(/^\d+\.\s+/gm, '')
@@ -53,7 +55,7 @@ function parseInline(text, keyPrefix) {
   if (!text) return null
   const parts = []
   // Order matters: check __ before _ to avoid greedy underscore matches
-  const re = /(\*\*[\s\S]*?\*\*|__[\s\S]*?__|(?<![_*])_(?!_)[\s\S]*?(?<!_)_(?![_*]))/g
+  const re = /(\[([^\]]+)\]\(([^)]+)\)|\*\*[\s\S]*?\*\*|__[\s\S]*?__|(?<![_*])_(?!_)[\s\S]*?(?<!_)_(?![_*]))/g
   let last = 0
   let m
   let i = 0
@@ -64,7 +66,38 @@ function parseInline(text, keyPrefix) {
       parts.push(<span key={`${keyPrefix}-t${i++}`}>{text.slice(last, m.index)}</span>)
     }
     const raw = m[0]
-    if (raw.startsWith('**')) {
+    const linkMatch = raw.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+    if (linkMatch) {
+      const [, linkText, linkHref] = linkMatch
+      parts.push(
+        <a
+          key={`${keyPrefix}-a${i++}`}
+          href={linkHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: 'var(--rt-link-color, #c9a84c)',
+            textDecoration: 'none',
+            borderBottom: '1px solid var(--rt-link-underline, rgba(201,168,76,0.4))',
+            paddingBottom: '1px',
+            transition: 'all 0.2s',
+            fontStyle: 'italic',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = 'var(--rt-link-hover, #e8c060)'
+            e.currentTarget.style.borderBottomColor = 'var(--rt-link-hover, #e8c060)'
+            e.currentTarget.style.textShadow = '0 0 12px var(--rt-link-glow, rgba(201,168,76,0.4))'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = 'var(--rt-link-color, #c9a84c)'
+            e.currentTarget.style.borderBottomColor = 'var(--rt-link-underline, rgba(201,168,76,0.4))'
+            e.currentTarget.style.textShadow = 'none'
+          }}
+        >
+          {linkText}
+        </a>
+      )
+    } else if (raw.startsWith('**')) {
       parts.push(<strong key={`${keyPrefix}-b${i++}`}>{raw.slice(2, -2)}</strong>)
     } else if (raw.startsWith('__')) {
       parts.push(
@@ -257,6 +290,20 @@ export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
     }, 0)
   }
 
+  const insertLink = () => {
+    const el = ref.current
+    if (!el) return
+    const { selectionStart: s, selectionEnd: e, value: v } = el
+    const sel = v.slice(s, e)
+    const url = window.prompt('Enter URL:', 'https://')
+    if (!url) return
+    const linkText = sel || 'link text'
+    const insert = `[${linkText}](${url})`
+    const newVal = v.slice(0, s) + insert + v.slice(e)
+    onChange(newVal)
+    setTimeout(() => { el.focus() }, 0)
+  }
+
   const handleKeyDown = (e) => {
     if (!e.ctrlKey && !e.metaKey) return
     const k = e.key.toLowerCase()
@@ -288,6 +335,8 @@ export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
         <div style={{ width: 1, background: 'rgba(201,168,76,0.15)', margin: '2px 3px' }} />
         <TBtn label="• List" title="Bullet list" onClick={() => linePrefix('- ')} />
         <TBtn label="1. List" title="Numbered list" onClick={() => linePrefix('1. ')} />
+        <div style={{ width: 1, background: 'rgba(201,168,76,0.15)', margin: '2px 3px' }} />
+        <TBtn label="🔗 Link" title="Hyperlink — [text](url)" onClick={() => insertLink()} />
         <div style={{ flex: 1 }} />
         <span style={{
           fontFamily: "'Lora', serif", fontSize: '0.6rem',
@@ -303,7 +352,7 @@ export function RichTextEditor({ value, onChange, rows = 8, placeholder }) {
         onChange={e => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         rows={rows}
-        placeholder={placeholder || 'Write your description… use **bold**, _italic_, # Heading, - list item'}
+        placeholder={placeholder || 'Write your description… **bold**, _italic_, [link text](url), # Heading, - list'}
         style={{
           width: '100%', boxSizing: 'border-box',
           padding: '12px 14px',
