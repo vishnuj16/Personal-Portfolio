@@ -5,6 +5,7 @@ import Navbar from './components/Navbar'
 import AdminBanner from './components/AdminBanner'
 import Hero from './components/Hero'
 import Projects from './components/Projects'
+import ProjectPage from './components/ProjectPage'
 import Skills from './components/Skills'
 import Experience from './components/Experience'
 import Education from './components/Education'
@@ -12,42 +13,49 @@ import Footer from './components/Footer'
 import CursorGlow from './components/CursorGlow'
 import AuthorPage from './components/AuthorPage'
 
-// ── URL helpers ───────────────────────────────────────────────────────────────
-// Parse the current path into { mode, bookSlug }
+// ── URL routing ───────────────────────────────────────────────────────────────
+// URL scheme:
+//   /              → dev mode
+//   /author        → author mode (book list)
+//   /book/:slug    → author mode, open that specific book
+//
+// The mode is entirely URL-driven. localStorage is no longer the source of truth
+// for mode — the URL is. Sharing /book/:slug always opens author mode + that book.
+
 function parsePath() {
   const path = window.location.pathname
-  // /book/:slug  → author mode, open that book
-  const bookMatch = path.match(/^\/book\/([^/]+)$/)
+
+  // /book/:slug → author mode, open that book
+  const bookMatch = path.match(/^\/book\/([^/]+)\/?$/)
   if (bookMatch) return { mode: 'author', bookSlug: bookMatch[1] }
-  // /author      → author mode, no specific book
-  if (path.startsWith('/author')) return { mode: 'author', bookSlug: null }
-  // anything else → respect localStorage or default to dev
-  return { mode: localStorage.getItem('site_mode') || 'dev', bookSlug: null }
+
+  // /author → author mode, no specific book
+  if (path === '/author' || path.startsWith('/author/')) return { mode: 'author', bookSlug: null }
+
+  // everything else → dev mode
+  return { mode: 'dev', bookSlug: null }
 }
 
 function PortfolioApp() {
   const { isAdmin, isEditMode } = useAuth()
-  const [profile, setProfile] = useState(null)
+  const [profile, setProfile]               = useState(null)
+  const [viewingProject, setViewingProject] = useState(null)
 
-  // Initialise mode and deep-link from URL
-  const [mode,        setMode]        = useState(() => parsePath().mode)
-  const [initialSlug, setInitialSlug] = useState(() => parsePath().bookSlug)
+  const initial = parsePath()
+  const [mode,        setMode]        = useState(initial.mode)
+  const [initialSlug, setInitialSlug] = useState(initial.bookSlug)
 
   const adminOffset = isAdmin ? 37 : 0
 
-  const handleModeChange = useCallback((m) => {
-    setMode(m)
-    localStorage.setItem('site_mode', m)
-    // Push a clean URL when switching modes
-    const url = m === 'author' ? '/author' : '/'
-    window.history.pushState({ mode: m }, '', url)
-  }, [])
-
   useEffect(() => {
     getProfile().then(setProfile).catch(() => {})
+    // Reload when window regains focus (catches edits made in Hero)
+    const onFocus = () => getProfile().then(setProfile).catch(() => {})
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  // Handle browser back/forward
+  // Sync state when browser navigates (back/forward)
   useEffect(() => {
     const onPop = () => {
       const { mode: m, bookSlug } = parsePath()
@@ -58,12 +66,37 @@ function PortfolioApp() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
+  // Called by navbar / mode selector to switch modes
+  const handleModeChange = useCallback((m) => {
+    const url = m === 'author' ? '/author' : '/'
+    window.history.pushState({ mode: m }, '', url)
+    setMode(m)
+    setInitialSlug(null)
+  }, [])
+
+  // Called by AuthorPage when navigating to a book or back
+  const handleNavigate = useCallback((path) => {
+    window.history.pushState({}, '', path)
+    // If navigating back to /author, clear the slug so a re-mount won't re-open the book
+    if (path === '/author') setInitialSlug(null)
+  }, [])
+
+  if (viewingProject) {
+    return (
+      <ProjectPage
+        project={viewingProject}
+        onBack={() => { setViewingProject(null); window.scrollTo(0, 0) }}
+        onEdit={() => { setViewingProject(null) }}
+      />
+    )
+  }
+
   if (mode === 'author') {
     return (
       <AuthorPage
         onModeChange={handleModeChange}
         initialBookSlug={initialSlug}
-        onNavigate={(path) => window.history.pushState({}, '', path)}
+        onNavigate={handleNavigate}
       />
     )
   }
@@ -75,7 +108,7 @@ function PortfolioApp() {
       <Navbar adminOffset={adminOffset} currentMode={mode} onModeChange={handleModeChange} />
       <main style={{ paddingTop: isAdmin ? '37px' : '0' }}>
         <Hero />
-        <Projects />
+        <Projects onViewProject={setViewingProject} />
         <Skills />
         <Experience />
         <Education />

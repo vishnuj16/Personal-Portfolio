@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createBook, updateBook, uploadFile, imgUrl } from '../api'
 import { RichTextEditor } from './RichText'
 
@@ -44,6 +44,160 @@ function Chip({ active, onClick, children }) {
       color: active ? '#1a1410' : '#9a8060', transition: 'all 0.15s',
     }}>{children}</button>
   )
+}
+
+// ── Gold Date Picker (author-themed month/year picker) ──────────────────────
+function GoldDatePicker({ value, onChange, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const [viewYear, setViewYear] = useState(() => {
+    if (value) { const [y] = value.split('-'); return parseInt(y) || new Date().getFullYear() }
+    return new Date().getFullYear()
+  })
+  const ref = useRef(null)
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const selectedYear  = value ? parseInt(value.split('-')[0]) : null
+  const selectedMonth = value ? parseInt(value.split('-')[1]) - 1 : null
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const select = (y, m) => { onChange(`${y}-${String(m + 1).padStart(2, '0')}`); setOpen(false) }
+  const clear  = (e)    => { e.stopPropagation(); onChange('') }
+
+  const GOLD       = '#c9a84c'
+  const GOLD_DIM   = 'rgba(201,168,76,0.12)'
+  const GOLD_BORDER = 'rgba(201,168,76,0.25)'
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      {/* Trigger */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', background: '#fdf9f3',
+          border: `1px solid ${open ? GOLD : GOLD_BORDER}`,
+          color: value ? '#3d2e1a' : '#9a8060',
+          padding: '8px 36px 8px 12px', borderRadius: '7px',
+          fontSize: '0.82rem', cursor: 'pointer',
+          display: 'flex', alignItems: 'center',
+          transition: 'border-color 0.2s', boxSizing: 'border-box',
+          fontFamily: "'Lora', Georgia, serif",
+          boxShadow: open ? `0 0 0 3px ${GOLD_DIM}` : 'none',
+          position: 'relative',
+        }}
+      >
+        <span>{value ? (() => { const [y, m] = value.split('-'); return `${MONTHS[parseInt(m)-1]} ${y}` })() : (placeholder || 'Select date')}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, position: 'absolute', right: 10 }}>
+          {value && (
+            <span
+              onClick={clear}
+              style={{ color: '#9a8060', fontSize: '0.72rem', cursor: 'pointer', lineHeight: 1 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#c9a84c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#9a8060'}
+            >✕</span>
+          )}
+          <span style={{ color: GOLD, fontSize: '0.7rem', opacity: open ? 1 : 0.6 }}>▾</span>
+        </div>
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 99999,
+          background: '#fffdf8',
+          border: `1px solid ${GOLD_BORDER}`,
+          borderRadius: '10px', padding: '16px',
+          boxShadow: '0 16px 48px rgba(61,46,26,0.18), 0 2px 8px rgba(61,46,26,0.08)',
+          minWidth: '240px',
+          animation: 'fadeInUp 0.18s ease',
+        }}>
+          {/* Year nav */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <button
+              onClick={() => setViewYear(y => y - 1)}
+              style={goldNavBtn}
+            >◀</button>
+            <span style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: '1rem', fontWeight: 700,
+              color: '#3d2e1a', letterSpacing: '0.02em',
+            }}>{viewYear}</span>
+            <button
+              onClick={() => setViewYear(y => y + 1)}
+              style={goldNavBtn}
+            >▶</button>
+          </div>
+
+          {/* Month grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+            {MONTHS.map((m, i) => {
+              const isSel = selectedYear === viewYear && selectedMonth === i
+              const isCur = new Date().getFullYear() === viewYear && new Date().getMonth() === i
+              return (
+                <button
+                  key={m}
+                  onClick={() => select(viewYear, i)}
+                  style={{
+                    padding: '8px 4px', borderRadius: '6px', cursor: 'pointer',
+                    fontFamily: "'Lora', Georgia, serif", fontSize: '0.75rem',
+                    transition: 'all 0.15s',
+                    background: isSel ? GOLD_DIM : 'transparent',
+                    border: isSel
+                      ? `1px solid ${GOLD}`
+                      : isCur
+                      ? `1px solid ${GOLD_BORDER}`
+                      : '1px solid transparent',
+                    color: isSel ? '#3d2e1a' : isCur ? '#9a8060' : '#6b5c45',
+                    fontWeight: isSel ? 600 : 400,
+                    boxShadow: isSel ? `0 0 0 1px ${GOLD_DIM}` : 'none',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isSel) {
+                      e.currentTarget.style.background = GOLD_DIM
+                      e.currentTarget.style.color = '#3d2e1a'
+                      e.currentTarget.style.borderColor = GOLD_BORDER
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSel) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = isCur ? '#9a8060' : '#6b5c45'
+                      e.currentTarget.style.borderColor = isCur ? GOLD_BORDER : 'transparent'
+                    }
+                  }}
+                >{m}</button>
+              )
+            })}
+          </div>
+
+          {/* Today shortcut */}
+          <div style={{ marginTop: 12, borderTop: `1px solid ${GOLD_BORDER}`, paddingTop: 10, textAlign: 'center' }}>
+            <button
+              onClick={() => { const n = new Date(); select(n.getFullYear(), n.getMonth()) }}
+              style={{
+                fontFamily: "'Lora', Georgia, serif", fontSize: '0.68rem',
+                color: '#9a8060', background: 'transparent', border: 'none', cursor: 'pointer',
+                fontStyle: 'italic',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = GOLD}
+              onMouseLeave={e => e.currentTarget.style.color = '#9a8060'}
+            >⊙ this month</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const goldNavBtn = {
+  background: 'transparent',
+  border: '1px solid rgba(201,168,76,0.25)',
+  color: '#c9a84c', width: 28, height: 28, borderRadius: '5px',
+  cursor: 'pointer', fontSize: '0.65rem', transition: 'all 0.15s',
 }
 
 export default function BookEditModal({ book, onSave, onClose }) {
@@ -253,10 +407,11 @@ export default function BookEditModal({ book, onSave, onClose }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <Label>Published Date</Label>
-              <input type="date" value={values.published_at || ''} onChange={e => set('published_at', e.target.value)}
-                style={{ ...F, colorScheme: 'light', accentColor: '#c9a84c', cursor: 'pointer' }}
-                onFocus={e => { e.target.style.borderColor = 'rgba(201,168,76,0.7)'; e.target.style.boxShadow = '0 0 0 3px rgba(201,168,76,0.1)' }}
-                onBlur={e => { e.target.style.borderColor = 'rgba(201,168,76,0.25)'; e.target.style.boxShadow = 'none' }} />
+              <GoldDatePicker
+                value={values.published_at ? values.published_at.slice(0, 7) : ''}
+                onChange={v => set('published_at', v ? v + '-01' : '')}
+                placeholder="Select month"
+              />
             </div>
             <div>
               <Label>Pages</Label>
@@ -318,15 +473,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
               {saving ? 'Saving…' : isNew ? 'Add to Library' : 'Save Changes'}
             </button>
           </div>
-          <style>{`
-            input[type="date"]::-webkit-calendar-picker-indicator {
-              filter: sepia(1) saturate(4) hue-rotate(5deg) brightness(0.85);
-              cursor: pointer; opacity: 0.7;
-            }
-            input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
-            input[type="date"]::-webkit-datetime-edit { color: #3d2e1a; }
-            input[type="date"]::-webkit-datetime-edit-fields-wrapper { color: #3d2e1a; }
-          `}</style>
+
         </div>
       </div>
     </div>

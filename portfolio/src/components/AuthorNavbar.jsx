@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import ModeSelector from './ModeSelector'
 
 const authorNavLinks = [
-  { label: 'Books',         href: '#author-all-books' },
   { label: 'Featured',      href: '#author-featured' },
+  { label: 'Books',         href: '#author-all-books' },
   { label: 'Upcoming',      href: '#author-coming-soon' },
   { label: 'Announcements', href: '#author-announcements' },
   { label: 'About',         href: '#author-about' },

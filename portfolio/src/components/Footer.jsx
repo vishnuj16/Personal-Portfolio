@@ -38,7 +38,9 @@ function ContactCard({ icon, label, value, href, copyValue, accent = 'var(--cyan
         display: 'flex', alignItems: 'center', gap: 16,
         transition: 'all 0.22s ease',
         boxShadow: hovered ? `0 0 24px ${accentAlpha(0.08)}` : 'none',
-        minWidth: 0,
+        width: '260px',
+        flexShrink: 0,
+        flexGrow: 0,
       }}
     >
       {/* Icon */}
@@ -195,10 +197,11 @@ export default function Footer({ profile }) {
 
           {/* Contact cards grid */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            display: 'flex',
+            flexWrap: 'wrap',
             gap: '14px',
             marginBottom: '48px',
+            justifyContent: 'center',
           }}>
 
             {profile?.email && (

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getProjects, createProject, updateProject, deleteProject, getCategories, imgUrl } from '../api'
 import EditModal from './EditModal'
-import ProjectViewModal from './ProjectViewModal'
 
 const PROJECT_FIELDS = [
   { key: 'title',       label: 'title',       required: true },
@@ -231,13 +230,12 @@ function ProjectRow({ project, active, onClick }) {
 }
 
 // ── Main Projects component ───────────────────────────────────────────────────
-export default function Projects() {
+export default function Projects({ onViewProject }) {
   const { isEditMode } = useAuth()
   const [projects, setProjects]             = useState([])
   const [skillCategories, setSkillCategories] = useState([])
   const [showAdd, setShowAdd]               = useState(false)
   const [editingProject, setEditingProject] = useState(null)
-  const [viewingProject, setViewingProject] = useState(null)
   const [filter, setFilter]                 = useState('all')
   const [activeIdx, setActiveIdx]           = useState(0)
   const [phase, setPhase]                   = useState('in')
@@ -263,7 +261,7 @@ export default function Projects() {
         setActiveIdx(i => (i + 1) % filtered.length)
         setPhase('in')
       }, 280)
-    }, 10000)
+    }, 6000)
   }, [filtered.length])
 
   useEffect(() => {
@@ -375,7 +373,7 @@ export default function Projects() {
                 <ProjectSpotlight
                   project={project}
                   isEditMode={isEditMode}
-                  onView={setViewingProject}
+                  onView={onViewProject}
                   onEdit={setEditingProject}
                 />
               )}
@@ -411,14 +409,7 @@ export default function Projects() {
         )}
       </div>
 
-      {viewingProject && (
-        <ProjectViewModal
-          project={viewingProject}
-          onClose={() => setViewingProject(null)}
-          onEdit={(p) => { setViewingProject(null); setEditingProject(p) }}
-          isEditMode={isEditMode}
-        />
-      )}
+
       {showAdd && (
         <EditModal title="new project" fields={PROJECT_FIELDS}
           initialValues={{ status: 'completed', featured: false, skill_ids: [] }}

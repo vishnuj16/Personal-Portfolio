@@ -1,56 +1,101 @@
 import { useAuth } from '../context/AuthContext'
+import LoginModal from './LoginModal'
+import { useState } from 'react'
 
 export default function AdminBanner() {
-  const { isAdmin, adminName, isEditMode, setIsEditMode, modalOpen, logout } = useAuth()
-  if (!isAdmin) return null
+  const { isAdmin, adminName, isEditMode, toggleEditMode, logout } = useAuth()
+  const [showLogin, setShowLogin] = useState(false)
+
+  if (!isAdmin) {
+    return (
+      <>
+        {showLogin && <LoginModal onClose={() => setShowLogin(false)} theme="dev" />}
+      </>
+    )
+  }
 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
-      background: 'linear-gradient(135deg, #001a1a 0%, #002222 50%, #001a1a 100%)',
-      borderBottom: '1px solid var(--cyan)',
-      boxShadow: '0 0 20px rgba(0,229,255,0.3)',
-      padding: '8px 24px',
+      height: '37px',
+      background: 'linear-gradient(90deg, #030712 0%, #0a0f1e 50%, #030712 100%)',
+      borderBottom: '1px solid rgba(0,229,255,0.15)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      fontFamily: 'var(--font-mono)', fontSize: '0.8rem',
+      padding: '0 24px',
+      fontFamily: 'var(--font-mono)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* Left: status */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
-          width: 8, height: 8, borderRadius: '50%', background: 'var(--green)',
-          boxShadow: '0 0 10px var(--green)', animation: 'glow-pulse 2s infinite'
+          width: 6, height: 6, borderRadius: '50%',
+          background: isEditMode ? 'var(--cyan)' : 'rgba(0,229,255,0.3)',
+          boxShadow: isEditMode ? '0 0 8px var(--cyan)' : 'none',
+          transition: 'all 0.3s',
         }} />
-        <span style={{ color: 'var(--cyan)' }}>
-          [root@portfolio ~]$ sudo su <span style={{ color: 'var(--green)', fontWeight: 700 }}>{adminName}</span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+          admin
         </span>
-        <span style={{ color: 'var(--text-muted)' }}>— Admin mode active</span>
+        <span style={{ color: 'rgba(0,229,255,0.3)', fontSize: '0.6rem' }}>·</span>
+        <span style={{ fontSize: '0.72rem', color: 'var(--cyan)', opacity: 0.8 }}>
+          {adminName || 'admin'}
+        </span>
+        {isEditMode && (
+          <span style={{
+            fontSize: '0.6rem', color: '#28c840',
+            background: 'rgba(40,200,64,0.08)', border: '1px solid rgba(40,200,64,0.25)',
+            padding: '1px 7px', borderRadius: 3, letterSpacing: '0.08em',
+          }}>
+            EDITING
+          </span>
+        )}
       </div>
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+
+      {/* Right: controls */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button
-          onClick={() => !modalOpen && setIsEditMode(e => !e)}
-          title={modalOpen ? 'Close the open modal first' : ''}
+          onClick={toggleEditMode}
           style={{
-            background: isEditMode ? 'rgba(0,229,255,0.15)' : 'transparent',
-            border: `1px solid ${isEditMode ? 'var(--cyan)' : 'var(--text-muted)'}`,
+            background: isEditMode ? 'rgba(0,229,255,0.1)' : 'transparent',
+            border: `1px solid ${isEditMode ? 'rgba(0,229,255,0.5)' : 'rgba(0,229,255,0.2)'}`,
             color: isEditMode ? 'var(--cyan)' : 'var(--text-muted)',
-            padding: '4px 12px', borderRadius: '4px', fontSize: '0.75rem',
+            padding: '3px 12px', borderRadius: '4px',
+            fontSize: '0.68rem', cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
             transition: 'all 0.2s',
-            opacity: modalOpen ? 0.4 : 1,
-            cursor: modalOpen ? 'not-allowed' : 'pointer',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'rgba(0,229,255,0.5)'
+            e.currentTarget.style.color = 'var(--cyan)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = isEditMode ? 'rgba(0,229,255,0.5)' : 'rgba(0,229,255,0.2)'
+            e.currentTarget.style.color = isEditMode ? 'var(--cyan)' : 'var(--text-muted)'
           }}
         >
-          {isEditMode ? '✎ Edit Mode ON' : '✎ Edit Mode OFF'}
-          {modalOpen && <span style={{ marginLeft: 6, fontSize: '0.65rem' }}>(modal open)</span>}
+          {isEditMode ? '✎ editing on' : '✎ edit off'}
         </button>
+
         <button
           onClick={logout}
-          disabled={modalOpen}
           style={{
-            background: 'transparent', border: '1px solid rgba(255,80,80,0.4)',
-            color: 'rgba(255,100,100,0.8)', padding: '4px 12px', borderRadius: '4px',
-            fontSize: '0.75rem', transition: 'all 0.2s', opacity: modalOpen ? 0.4 : 1, cursor: modalOpen ? 'not-allowed' : 'pointer',
+            background: 'transparent',
+            border: '1px solid rgba(255,80,80,0.25)',
+            color: 'rgba(255,100,100,0.6)',
+            padding: '3px 10px', borderRadius: '4px',
+            fontSize: '0.68rem', cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'rgba(255,80,80,0.5)'
+            e.currentTarget.style.color = 'rgba(255,100,100,0.9)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'rgba(255,80,80,0.25)'
+            e.currentTarget.style.color = 'rgba(255,100,100,0.6)'
           }}
         >
-          exit
+          logout
         </button>
       </div>
     </div>

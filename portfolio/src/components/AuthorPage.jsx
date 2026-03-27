@@ -208,7 +208,7 @@ const BookCard = memo(function BookCard({ book, isEditMode, onEdit, onDelete, on
             fontFamily: "'Lora', Georgia, serif", fontSize: '0.8rem',
             color: '#6b5c45', lineHeight: 1.6, margin: '0 0 14px',
             display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>{book.description}</p>
+          }}>{stripToPlain(book.description)}</p>
         )}
         {!isEditMode && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -475,12 +475,10 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
   const openBook = (book) => {
     setViewingBook(book)
     if (onNavigate) onNavigate(`/book/${book.slug}`)
-    else window.history.pushState({ bookSlug: book.slug }, '', `/book/${book.slug}`)
   }
   const closeBook = () => {
     setViewingBook(null)
     if (onNavigate) onNavigate('/author')
-    else window.history.pushState({}, '', '/author')
     setTimeout(() => window.scrollTo(0, 0), 50)
   }
 
@@ -722,7 +720,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
               {filtered.map(book => (
                 <BookCard key={book.id} book={book} isEditMode={isEditMode}
                   onEdit={b => { setEditingBook(b); setShowBookModal(true) }}
-                  onDelete={handleDelete} onView={setViewingBook} />
+                  onDelete={handleDelete} onView={openBook} />
               ))}
             </div>
           ) : (
@@ -739,11 +737,8 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
         </div>
       </section>
 
-      {/* ── AUTHOR BIO ────────────────────────────────────────────────────── */}
-      <AuthorBioSection profile={profile} isEditMode={isEditMode} onUpdate={async (patch) => { await updateProfile(patch); setProfile(p => ({ ...p, ...patch })) }} />
-
       {/* ── COMING SOON ───────────────────────────────────────────────────── */}
-      <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} onView={setViewingBook} />
+      <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} onView={openBook} />
 
       {/* ── ANNOUNCEMENTS ─────────────────────────────────────────────────── */}
       <AnnouncementsSection
@@ -760,6 +755,9 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
           setAnnouncements(a => a.filter(x => x.id !== id))
         }}
       />
+
+      {/* ── ABOUT / BIO ───────────────────────────────────────────────────── */}
+      <AuthorBioSection profile={profile} isEditMode={isEditMode} onUpdate={async (patch) => { await updateProfile(patch); setProfile(p => ({ ...p, ...patch })) }} />
 
       {/* ── CONTACT ───────────────────────────────────────────────────────── */}
       <section id="author-contact" style={{ ...sectionPadding, background: '#fdf8f0' }}>
