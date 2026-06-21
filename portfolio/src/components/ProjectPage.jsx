@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { imgUrl } from '../api'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 const CYAN   = '#00e5ff'
 const GREEN  = '#00ff87'
@@ -9,6 +10,7 @@ const MONO   = "'JetBrains Mono', 'Fira Code', monospace"
 
 export default function ProjectPage({ project, onBack, onEdit }) {
   const { isEditMode } = useAuth()
+  const isMobile = useMediaQuery(900)
   const cover  = project.cover_url ? imgUrl(project.cover_url) : null
   const skills = project.skills || []
 
@@ -29,8 +31,10 @@ export default function ProjectPage({ project, onBack, onEdit }) {
         background: 'rgba(3,7,18,0.92)',
         backdropFilter: 'blur(12px)',
         borderBottom: `1px solid ${BORDER}`,
-        padding: '0 40px', height: 52,
+        padding: isMobile ? '0 16px' : '0 40px', height: isMobile ? 58 : 52,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10,
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
       }}>
         <button
           onClick={onBack}
@@ -47,7 +51,7 @@ export default function ProjectPage({ project, onBack, onEdit }) {
           ← cd ..
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' }}>
           {/* macOS dots */}
           {['#ff5f57','#febc2e','#28c840'].map((c,i) => (
             <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />
@@ -72,14 +76,14 @@ export default function ProjectPage({ project, onBack, onEdit }) {
             ✎ edit
           </button>
         )}
-        {!isEditMode && <div style={{ width: 80 }} />}
+        {!isEditMode && !isMobile && <div style={{ width: 80 }} />}
       </div>
 
       {/* ── Hero section ────────────────────────────────────────────────── */}
       <div style={{ position: 'relative', overflow: 'hidden' }}>
         {/* Cover image as full-width banner */}
         {cover && (
-          <div style={{ position: 'relative', height: 380, overflow: 'hidden' }}>
+          <div style={{ position: 'relative', height: isMobile ? 240 : 380, overflow: 'hidden' }}>
             <img
               src={cover}
               alt={project.title}
@@ -110,7 +114,7 @@ export default function ProjectPage({ project, onBack, onEdit }) {
           position: cover ? 'absolute' : 'relative',
           bottom: cover ? 0 : 'auto',
           left: 0, right: 0,
-          padding: cover ? '0 60px 40px' : '60px 60px 0',
+          padding: cover ? (isMobile ? '0 20px 24px' : '0 60px 40px') : (isMobile ? '32px 20px 0' : '60px 60px 0'),
           maxWidth: 1100,
         }}>
           {/* Terminal prompt */}
@@ -150,7 +154,7 @@ export default function ProjectPage({ project, onBack, onEdit }) {
       </div>
 
       {/* ── Main content ────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 60px 100px', display: 'grid', gridTemplateColumns: '1fr 340px', gap: 48, minWidth: 0 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '32px 20px 64px' : '48px 60px 100px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: isMobile ? 24 : 48, minWidth: 0 }}>
 
         {/* Left: description */}
         <div style={{ minWidth: 0, overflow: 'hidden' }}>
@@ -205,7 +209,7 @@ export default function ProjectPage({ project, onBack, onEdit }) {
         </div>
 
         {/* Right: sidebar */}
-        <aside>
+        <aside style={{ minWidth: 0 }}>
           {/* Links */}
           <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '20px 22px', marginBottom: 20 }}>
             <div style={{ fontFamily: MONO, fontSize: '0.6rem', color: `rgba(0,229,255,0.4)`, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 14 }}>

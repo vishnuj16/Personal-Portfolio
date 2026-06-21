@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { getProfile, updateProfile, checkResume as checkResume_api, uploadResume } from '../api'
 import TerminalTyper from './TerminalTyper'
 import EditModal from './EditModal'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 // ─── Social link definitions ─────────────────────────────────────────────────
 // Each one has a monochrome SVG icon, label, and color accent.
@@ -334,6 +335,7 @@ function AvailableBadge() {
 // ─── Main Hero ────────────────────────────────────────────────────────────────
 export default function Hero() {
   const { isEditMode } = useAuth()
+  const isMobile = useMediaQuery(900)
   const [profile, setProfile] = useState(null)
   const [showEdit, setShowEdit] = useState(false)
   const [resumeExists, setResumeExists] = useState(false)
@@ -376,7 +378,7 @@ export default function Hero() {
     <section id="hero" style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
       position: 'relative', overflow: 'hidden',
-      padding: '120px 40px 80px',
+      padding: isMobile ? '104px 20px 56px' : '120px 40px 80px',
     }}>
       {/* Grid background */}
       <div style={{
@@ -396,7 +398,7 @@ export default function Hero() {
       }} />
 
       <div style={{ position: 'relative', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '60px', alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '32px' : '60px', alignItems: 'center' }}>
 
           {/* ── Left column ─────────────────────────────────────────────── */}
           <div style={{ animation: 'fadeInUp 0.8s ease' }}>
@@ -438,7 +440,7 @@ export default function Hero() {
             {(profile.dev_bio || profile.bio) && (
               <p style={{
                 color: 'var(--text-muted)', lineHeight: 1.75,
-                maxWidth: '460px', marginBottom: '32px', fontSize: '0.9rem',
+                maxWidth: isMobile ? '100%' : '460px', marginBottom: '32px', fontSize: '0.9rem',
                 fontFamily: 'var(--font-sans)',
               }}>
                 {profile.dev_bio || profile.bio}
@@ -518,15 +520,16 @@ export default function Hero() {
               </div>
 
               {/* Terminal body */}
-              <div style={{ padding: '24px', minHeight: '200px' }}>
+              <div style={{ padding: isMobile ? '18px' : '24px', minHeight: isMobile ? '160px' : '200px' }}>
                 {termLines.length > 0 && <TerminalTyper lines={termLines} speed={40} />}
               </div>
 
               {/* Terminal footer — live stat strip */}
               <div style={{
                 borderTop: '1px solid rgba(0,229,255,0.06)',
-                padding: '10px 18px',
-                display: 'flex', gap: 20, alignItems: 'center',
+                padding: isMobile ? '10px 14px' : '10px 18px',
+                display: 'flex', gap: isMobile ? 12 : 20, alignItems: 'center',
+                flexWrap: 'wrap',
                 background: 'rgba(0,229,255,0.015)',
               }}>
                 <StatPip label="status" value={profile.available ? 'open' : 'closed'} color={profile.available ? 'var(--green)' : '#6b7280'} />

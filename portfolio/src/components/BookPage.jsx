@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getBook, imgUrl } from '../api'
 import { renderRichText, stripToPlain } from './RichText'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 // ── Colour utilities ───────────────────────────────────────────────────────────
 function hexToRgb(hex) {
@@ -147,6 +148,7 @@ function ScrollProgress({ accent }) {
 // ── Main BookPage ──────────────────────────────────────────────────────────────
 export default function BookPage({ bookId, book: bookProp, onBack }) {
   const { isAdmin, isEditMode } = useAuth()
+  const isMobile = useMediaQuery(900)
   const [book, setBook] = useState(bookProp || null)
   const [loading, setLoading] = useState(!bookProp)
   const [descExpanded, setDescExpanded] = useState(false)
@@ -245,7 +247,7 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
 
         {/* Back button */}
         {onBack && (
-          <div style={{ position: 'absolute', top: 28, left: 40, zIndex: 10 }}>
+          <div style={{ position: 'absolute', top: isMobile ? 20 : 28, left: isMobile ? 20 : 40, zIndex: 10 }}>
             <BackButton onBack={onBack} accent={accent} />
           </div>
         )}
@@ -253,10 +255,10 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
         {/* Content */}
         <div style={{
           maxWidth: 1100, margin: '0 auto', width: '100%',
-          padding: '140px 48px 100px',
+          padding: isMobile ? '110px 20px 72px' : '140px 48px 100px',
           display: 'grid',
-          gridTemplateColumns: coverSrc ? '1fr 420px' : '1fr',
-          gap: 80, alignItems: 'center',
+          gridTemplateColumns: coverSrc ? (isMobile ? '1fr' : '1fr 420px') : '1fr',
+          gap: isMobile ? 32 : 80, alignItems: 'center',
           position: 'relative', zIndex: 2,
         }}>
           {/* Left — text */}
@@ -557,6 +559,7 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
 // ── ComingSoonBookPage ─────────────────────────────────────────────────────────
 // A beautiful, dark, atmospheric page for upcoming / WIP books.
 function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
+  const isMobile = useMediaQuery(900)
   const heroBg = `linear-gradient(160deg, ${darken(accent, 0.78)} 0%, ${darken(accent, 0.62)} 60%, #0e0b06 100%)`
 
   return (
@@ -566,7 +569,7 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
       <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} fixed />
       {onBack && (
         <button onClick={onBack} style={{
-          position: 'fixed', top: 24, left: 28, zIndex: 100,
+          position: 'fixed', top: isMobile ? 18 : 24, left: isMobile ? 18 : 28, zIndex: 100,
           display: 'flex', alignItems: 'center', gap: 7,
           padding: '8px 16px', borderRadius: 8,
           background: 'rgba(14,11,6,0.7)', backdropFilter: 'blur(10px)',
@@ -602,8 +605,8 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
           )
         })}
 
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 48px 80px', width: '100%' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: coverSrc ? '1fr 1fr' : '1fr', gap: 72, alignItems: 'center' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '110px 20px 64px' : '120px 48px 80px', width: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: coverSrc ? (isMobile ? '1fr' : '1fr 1fr') : '1fr', gap: isMobile ? 32 : 72, alignItems: 'center' }}>
 
             {/* Text side */}
             <div style={{ animation: 'fadeInUp 0.8s ease' }}>

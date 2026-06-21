@@ -11,6 +11,7 @@ import NewReleaseModal from './NewReleaseModal'
 import { stripToPlain } from './RichText'
 import AnnouncementPage from './AnnouncementPage'
 import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../api'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 // ─── Google Fonts (injected once) ────────────────────────────────────────────
 function injectFonts() {
@@ -391,6 +392,7 @@ function AuthorTaglineEditor({ value, onSave }) {
 // ─── Main AuthorPage ──────────────────────────────────────────────────────────
 export default function AuthorPage({ onModeChange, initialBookSlug = null, onNavigate }) {
   const { isAdmin, isEditMode } = useAuth()
+  const isMobile = useMediaQuery(900)
   const [books, setBooks] = useState([])
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -470,6 +472,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
   const heroBg = useMemo(() => newRelease?.theme_color
     ? `linear-gradient(160deg, ${darken(heroAccent, 0.72)} 0%, ${darken(heroAccent, 0.52)} 50%, #1a1410 100%)`
     : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)', [heroAccent, newRelease?.theme_color])
+  const authorDisplayName = profile?.name?.trim() === 'Vishnu' ? 'Vishnu Vyas' : (profile?.name || 'Vishnu Vyas')
 
   // Push URL when opening a book, pop it when going back
   const openBook = (book) => {
@@ -506,7 +509,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
     )
   }
 
-  const sectionPadding = { padding: '96px 48px' }
+  const sectionPadding = { padding: isMobile ? '72px 20px' : '96px 48px' }
   const innerMax = { maxWidth: 1080, margin: '0 auto' }
 
   return (
@@ -516,7 +519,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
         adminOffset={adminOffset}
         currentMode="author"
         onModeChange={onModeChange}
-        authorName={profile?.name}
+        authorName={authorDisplayName}
         latestAnnouncement={announcements[0] || null}
         onAnnouncementClick={setViewingAnn}
       />
@@ -560,9 +563,9 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
           <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', height: 2, width: 40, background: `linear-gradient(to right, transparent, ${rgba(heroAccent, 0.6)}, transparent)`, animation: 'borderGlow 4s ease-in-out infinite 1.1s', pointerEvents: 'none' }} />
         </>)}
 
-        <div style={{ ...innerMax, position: 'relative', width: '100%', padding: '140px 48px 100px' }}>
+        <div style={{ ...innerMax, position: 'relative', width: '100%', padding: isMobile ? '120px 20px 72px' : '140px 48px 100px' }}>
           {newRelease ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 80, alignItems: 'center' }}>
               <div style={{ animation: 'fadeInUp 0.8s ease' }}>
                 {/* Author pen name */}
                 <div style={{
@@ -574,7 +577,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
                   opacity: 0.9,
                   textShadow: `0 0 20px ${rgba(heroAccent, 0.4)}`,
                 }}>
-                  {profile?.name || 'Vishnu Vyas'}
+                  {authorDisplayName}
                 </div>
                 <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.72rem', color: heroAccent, letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ width: 32, height: 1, background: heroAccent, opacity: 0.7, display: 'inline-block' }} />
@@ -629,7 +632,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
             <div style={{ textAlign: 'center', animation: 'fadeInUp 0.8s ease' }}>
               <div style={{ fontFamily: "'Lora', serif", fontSize: '0.8rem', color: '#c9a84c', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>Author</div>
               <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2.8rem, 7vw, 5rem)', color: '#f5f0e8', fontWeight: 900, margin: '0 0 20px', lineHeight: 1.05, textShadow: '0 4px 40px rgba(201,168,76,0.2)' }}>
-                {profile?.name || 'Vishnu Vyas'}
+                {authorDisplayName}
               </h1>
               <div style={{ width: 80, height: 1, background: 'rgba(201,168,76,0.4)', margin: '0 auto 24px' }} />
               <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.1rem', color: 'rgba(245,240,232,0.6)', maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.8 }}>
@@ -789,9 +792,9 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: '#1a1410' }}>
+      <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: isMobile ? '20px' : '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: '#1a1410' }}>
         <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', fontStyle: 'italic' }}>
-          © {new Date().getFullYear()} {profile?.name || 'Vishnu Vyas'} — All rights reserved
+          © {new Date().getFullYear()} {authorDisplayName} — All rights reserved
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           {!isAdmin && (
@@ -878,6 +881,7 @@ const darkLinkStyle = { fontFamily: "'Lora', Georgia, serif", fontSize: '0.85rem
 // ── FeaturedSlideshow ─────────────────────────────────────────────────────────
 // Light parchment background, horizontal catalogue layout — distinct from the dark hero
 function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
+  const isMobile = useMediaQuery(900)
   const [idx, setIdx]           = useState(0)
   const [phase, setPhase]       = useState('in')   // 'in' | 'out'
   const [descOpen, setDescOpen] = useState(false)
@@ -919,7 +923,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
     return (
       <section id="author-featured" style={{
         background: 'linear-gradient(160deg, #fdf8f0 0%, #f5ede0 100%)',
-        padding: '80px 48px',
+        padding: isMobile ? '64px 20px' : '80px 48px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 16, borderTop: '1px solid rgba(201,168,76,0.15)',
         borderBottom: '1px solid rgba(201,168,76,0.15)',
@@ -949,7 +953,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
       borderTop: '1px solid rgba(201,168,76,0.18)',
     }}>
       {/* Decorative top rule */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '44px 48px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '32px 20px 0' : '44px 48px 0' }}>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.3))' }} />
         <div style={{ padding: '0 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(201,168,76,0.4)', display: 'block' }} />
@@ -960,14 +964,14 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
       </div>
 
       {/* Section title */}
-      <div style={{ textAlign: 'center', padding: '20px 48px 0' }}>
+      <div style={{ textAlign: 'center', padding: isMobile ? '20px 20px 0' : '20px 48px 0' }}>
         <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 900, color: '#3d2e1a', margin: 0, letterSpacing: '-0.01em' }}>Featured Titles</h2>
         <div style={{ width: 40, height: 2, background: '#c9a84c', margin: '12px auto 0', borderRadius: 1 }} />
       </div>
 
       {/* Manage button (edit mode) */}
       {isEditMode && (
-        <div style={{ position: 'absolute', top: 40, right: 40, zIndex: 10 }}>
+        <div style={{ position: 'absolute', top: isMobile ? 20 : 40, right: isMobile ? 20 : 40, zIndex: 10 }}>
           <button onClick={onManage} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 7,
@@ -985,10 +989,10 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
       {/* Main content */}
       <div style={{
         maxWidth: 1100, margin: '0 auto',
-        padding: '48px 48px 64px',
+        padding: isMobile ? '32px 20px 48px' : '48px 48px 64px',
         display: 'grid',
-        gridTemplateColumns: '300px 1fr',
-        gap: 64, alignItems: 'start',
+        gridTemplateColumns: isMobile ? '1fr' : '300px 1fr',
+        gap: isMobile ? 28 : 64, alignItems: 'start',
         opacity: phase === 'out' ? 0 : 1,
         transform: phase === 'out' ? 'translateY(10px)' : 'translateY(0)',
         transition: 'opacity 0.35s ease, transform 0.35s ease',
@@ -1008,7 +1012,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
             }} />
             {cover ? (
               <img src={cover} alt={book.title} style={{
-                width: 220, height: 300, objectFit: 'cover',
+                width: isMobile ? 180 : 220, height: isMobile ? 250 : 300, objectFit: 'cover',
                 borderRadius: 6, display: 'block', position: 'relative',
                 boxShadow: `0 12px 40px rgba(61,46,26,0.25), 0 2px 8px ${rgba(accent, 0.2)}`,
                 transition: 'transform 0.3s ease, box-shadow 0.3s ease',
@@ -1017,7 +1021,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
               onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = `0 12px 40px rgba(61,46,26,0.25), 0 2px 8px ${rgba(accent, 0.2)}` }}
               />
             ) : (
-              <div style={{ width: 220, height: 300, background: `linear-gradient(135deg, ${rgba(accent, 0.25)}, ${rgba(accent, 0.08)})`, border: `1px solid ${rgba(accent, 0.25)}`, borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'relative' }}>
+              <div style={{ width: isMobile ? 180 : 220, height: isMobile ? 250 : 300, background: `linear-gradient(135deg, ${rgba(accent, 0.25)}, ${rgba(accent, 0.08)})`, border: `1px solid ${rgba(accent, 0.25)}`, borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, position: 'relative' }}>
                 <div style={{ fontSize: '2rem', opacity: 0.3 }}>📖</div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: '0.85rem', color: '#6b5c45', lineHeight: 1.4, textAlign: 'center', padding: '0 16px' }}>{book.title}</div>
               </div>
@@ -1136,7 +1140,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
       )}
 
       {/* Decorative bottom rule */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '0 48px 44px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: isMobile ? '0 20px 32px' : '0 48px 44px' }}>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(201,168,76,0.2))' }} />
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(201,168,76,0.3)', margin: '0 16px' }} />
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.2))' }} />
@@ -1147,6 +1151,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
 
 // ── AuthorBioSection ──────────────────────────────────────────────────────────
 function AuthorBioSection({ profile, isEditMode, onUpdate }) {
+  const isMobile = useMediaQuery(900)
   const [editing, setEditing]     = useState(false)
   const [bioVal, setBioVal]       = useState('')
   const [saving, setSaving]       = useState(false)
@@ -1175,14 +1180,14 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
 
   const [photoHover, setPhotoHover] = useState(false)
   const bio    = profile?.author_bio || profile?.bio || 'Writer. Storyteller. Builder of worlds.'
-  const name   = profile?.name || 'Vishnu Vyas'
+  const name   = profile?.name?.trim() === 'Vishnu' ? 'Vishnu Vyas' : (profile?.name || 'Vishnu Vyas')
   const avatar = profile?.avatar_url
 
   return (
     <section id="author-about" style={{
       position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(160deg, #1e1508 0%, #2c1f0e 50%, #1a1006 100%)',
-      padding: '100px 48px',
+      padding: isMobile ? '72px 20px' : '100px 48px',
     }}>
       {/* Decorative background pattern */}
       <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='%23c9a84c'/%3E%3C/svg%3E")`, backgroundSize: '60px 60px', pointerEvents: 'none' }} />
@@ -1208,7 +1213,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
         </div>
 
         {/* Layout: photo + bio */}
-        <div style={{ display: 'grid', gridTemplateColumns: avatar || isEditMode ? '280px 1fr' : '1fr', gap: 64, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: avatar || isEditMode ? (isMobile ? '1fr' : '280px 1fr') : '1fr', gap: isMobile ? 32 : 64, alignItems: 'start' }}>
 
           {/* Photo column */}
           {(avatar || isEditMode) && (
@@ -1238,7 +1243,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
                   onDrop={isEditMode ? (e => { e.preventDefault(); setPhotoDrag(false); handlePhoto(e.dataTransfer.files?.[0]) }) : undefined}
                   onClick={isEditMode && !avatar ? (() => document.getElementById('author-photo-input')?.click()) : undefined}
                   style={{
-                    width: 240, height: 300,
+                    width: isMobile ? 220 : 240, height: isMobile ? 280 : 300,
                     borderRadius: 12,
                     overflow: 'hidden',
                     position: 'relative',
@@ -1365,7 +1370,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
                   onBlur={e => e.target.style.borderColor = 'rgba(201,168,76,0.3)'}
                   autoFocus
                 />
-                <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <div style={{ display: 'flex', gap: 10, marginTop: 12, flexDirection: isMobile ? 'column' : 'row' }}>
                   <button onClick={cancel} style={{ padding: '8px 20px', borderRadius: 7, background: 'transparent', border: '1px solid rgba(245,240,232,0.15)', fontFamily: "'Lora', serif", fontSize: '0.8rem', color: 'rgba(245,240,232,0.4)', cursor: 'pointer' }}>Cancel</button>
                   <button onClick={saveBio} disabled={saving} style={{ padding: '8px 22px', borderRadius: 7, background: '#c9a84c', border: 'none', fontFamily: "'Playfair Display', serif", fontSize: '0.82rem', fontWeight: 600, color: '#1a1410', cursor: saving ? 'wait' : 'pointer' }}>
                     {saving ? 'Saving…' : 'Save Bio'}
@@ -1383,13 +1388,14 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
 
 // ── ComingSoonSection ─────────────────────────────────────────────────────────
 function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView }) {
+  const isMobile = useMediaQuery(900)
   if (books.length === 0 && !isEditMode) return null
 
   return (
     <section id="author-coming-soon" style={{
       position: 'relative', overflow: 'hidden',
       background: 'linear-gradient(180deg, #1a1006 0%, #22160a 50%, #1a1006 100%)',
-      padding: '100px 48px',
+      padding: isMobile ? '72px 20px' : '100px 48px',
     }}>
       {/* Subtle dot-grid background */}
       <div style={{ position: 'absolute', inset: 0, opacity: 0.03, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Ccircle cx='24' cy='24' r='1' fill='%23c9a84c'/%3E%3C/svg%3E")`, backgroundSize: '48px 48px', pointerEvents: 'none' }} />
@@ -1399,7 +1405,7 @@ function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView 
       <div style={{ maxWidth: 1080, margin: '0 auto', position: 'relative' }}>
 
         {/* Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'end', marginBottom: 64 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', alignItems: 'end', gap: 16, marginBottom: 64 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
               <div style={{ width: 28, height: 1, background: 'rgba(201,168,76,0.4)' }} />
@@ -1444,6 +1450,7 @@ function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView 
 // ── ComingSoonCard ─────────────────────────────────────────────────────────────
 // Horizontal cinematic card: full-height cover on left, rich info on right
 const ComingSoonCard = memo(function ComingSoonCard({ book, index, isEditMode, onView, onEdit, onDelete }) {
+  const isMobile = useMediaQuery(900)
   const [hovered, setHovered] = useState(false)
   const accent = book.theme_color || '#c9a84c'
   const cover  = book.cover_url ? imgUrl(book.cover_url) : null
@@ -1456,8 +1463,8 @@ const ComingSoonCard = memo(function ComingSoonCard({ book, index, isEditMode, o
       style={{
         position: 'relative',
         display: 'grid',
-        gridTemplateColumns: cover ? '200px 1fr' : '1fr',
-        minHeight: 280,
+        gridTemplateColumns: cover ? (isMobile ? '1fr' : '200px 1fr') : '1fr',
+        minHeight: isMobile ? 'auto' : 280,
         borderRadius: 16,
         overflow: 'hidden',
         cursor: 'pointer',
@@ -1495,7 +1502,7 @@ const ComingSoonCard = memo(function ComingSoonCard({ book, index, isEditMode, o
       )}
 
       {/* Right: content */}
-      <div style={{ padding: cover ? '36px 40px 32px' : '36px 44px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+      <div style={{ padding: cover ? (isMobile ? '24px 20px' : '36px 40px 32px') : (isMobile ? '24px 20px' : '36px 44px'), display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
         {/* Corner accent */}
         <div style={{ position: 'absolute', top: 18, right: 20, width: 18, height: 18, borderTop: `1.5px solid ${rgba(accent, hovered ? 0.7 : 0.25)}`, borderRight: `1.5px solid ${rgba(accent, hovered ? 0.7 : 0.25)}`, transition: 'border-color 0.3s' }} />
 
@@ -1573,6 +1580,7 @@ const AMBER_BORDER = 'rgba(232,160,48,0.28)'
 const ANN_BG       = '#1c1408'   // very dark warm ink for the section bg
 
 function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDelete }) {
+  const isMobile = useMediaQuery(900)
   const [creating, setCreating]   = useState(false)
   const [newTitle, setNewTitle]   = useState('')
   const [newBody,  setNewBody]    = useState('')
@@ -1599,7 +1607,7 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
   return (
     <section id="author-announcements" style={{
       background: ANN_BG,
-      padding: '80px 48px',
+      padding: isMobile ? '64px 20px' : '80px 48px',
       borderTop: `1px solid ${AMBER_BORDER}`,
     }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
@@ -1661,7 +1669,7 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
           <div style={{
             background: '#221a0a',
             border: `1px solid ${AMBER_BORDER}`,
-            borderRadius: 12, padding: '28px 32px',
+            borderRadius: 12, padding: isMobile ? '20px' : '28px 32px',
             marginBottom: 40,
             boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px ${AMBER_DIM}`,
           }}>
@@ -1718,7 +1726,7 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 12, flexDirection: isMobile ? 'column' : 'row' }}>
               <button
                 onClick={handleCreate} disabled={saving}
                 style={{

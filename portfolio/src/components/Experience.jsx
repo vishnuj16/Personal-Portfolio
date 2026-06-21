@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { getExperiences, createExperience, updateExperience, deleteExperience, imgUrl } from '../api'
 import EditModal from './EditModal'
 import ExperienceViewModal from './ExperienceViewModal'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 const EXP_FIELDS = [
   { key: 'logo_url',    label: 'company logo',  type: 'image-upload', bucket: 'experiences' },
@@ -77,6 +78,7 @@ function ExperienceCard({ exp, isEditMode, onView, onEdit }) {
 
 export default function Experience() {
   const { isEditMode } = useAuth()
+  const isMobile = useMediaQuery(768)
   const [experiences, setExperiences] = useState([])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -87,12 +89,12 @@ export default function Experience() {
 
   return (
     <section id="experience">
-      <div style={{ padding: '60px 40px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ padding: isMobile ? '48px 20px' : '60px 40px', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ marginBottom: '48px' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--cyan)', letterSpacing: '0.15em', marginBottom: '8px' }}>
             <span style={{ color: 'var(--text-muted)' }}>$ git</span> log --experience
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>Experience<span style={{ color: 'var(--cyan)' }}>.</span></h2>
             {isEditMode && <button onClick={() => setShowAdd(true)} style={addBtnStyle}>+ add</button>}
           </div>
@@ -101,7 +103,7 @@ export default function Experience() {
         {experiences.length === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', padding: '60px 0' }}>// no experience entries yet</div>
         ) : (
-          <div style={{ maxWidth: '760px', paddingLeft: '20px' }}>
+          <div style={{ maxWidth: '760px', paddingLeft: isMobile ? 0 : '20px' }}>
             {experiences.map(exp => (
               <ExperienceCard key={exp.id} exp={exp} isEditMode={isEditMode}
                 onView={setViewing}

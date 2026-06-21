@@ -1,10 +1,12 @@
 import { useAuth } from '../context/AuthContext'
 import LoginModal from './LoginModal'
 import { useState } from 'react'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 export default function AdminBanner() {
   const { isAdmin, adminName, isEditMode, toggleEditMode, logout } = useAuth()
   const [showLogin, setShowLogin] = useState(false)
+  const isMobile = useMediaQuery(640)
 
   if (!isAdmin) {
     return (
@@ -21,11 +23,12 @@ export default function AdminBanner() {
       background: 'linear-gradient(90deg, #030712 0%, #0a0f1e 50%, #030712 100%)',
       borderBottom: '1px solid rgba(0,229,255,0.15)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 24px',
+      padding: isMobile ? '0 12px' : '0 24px',
       fontFamily: 'var(--font-mono)',
+      gap: 8,
     }}>
       {/* Left: status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12, minWidth: 0 }}>
         <div style={{
           width: 6, height: 6, borderRadius: '50%',
           background: isEditMode ? 'var(--cyan)' : 'rgba(0,229,255,0.3)',
@@ -35,11 +38,11 @@ export default function AdminBanner() {
         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
           admin
         </span>
-        <span style={{ color: 'rgba(0,229,255,0.3)', fontSize: '0.6rem' }}>·</span>
-        <span style={{ fontSize: '0.72rem', color: 'var(--cyan)', opacity: 0.8 }}>
+        {!isMobile && <span style={{ color: 'rgba(0,229,255,0.3)', fontSize: '0.6rem' }}>·</span>}
+        <span style={{ fontSize: '0.72rem', color: 'var(--cyan)', opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {adminName || 'admin'}
         </span>
-        {isEditMode && (
+        {isEditMode && !isMobile && (
           <span style={{
             fontSize: '0.6rem', color: '#28c840',
             background: 'rgba(40,200,64,0.08)', border: '1px solid rgba(40,200,64,0.25)',
@@ -51,14 +54,14 @@ export default function AdminBanner() {
       </div>
 
       {/* Right: controls */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
         <button
           onClick={toggleEditMode}
           style={{
             background: isEditMode ? 'rgba(0,229,255,0.1)' : 'transparent',
             border: `1px solid ${isEditMode ? 'rgba(0,229,255,0.5)' : 'rgba(0,229,255,0.2)'}`,
             color: isEditMode ? 'var(--cyan)' : 'var(--text-muted)',
-            padding: '3px 12px', borderRadius: '4px',
+            padding: isMobile ? '3px 8px' : '3px 12px', borderRadius: '4px',
             fontSize: '0.68rem', cursor: 'pointer',
             fontFamily: 'var(--font-mono)',
             transition: 'all 0.2s',
@@ -72,7 +75,7 @@ export default function AdminBanner() {
             e.currentTarget.style.color = isEditMode ? 'var(--cyan)' : 'var(--text-muted)'
           }}
         >
-          {isEditMode ? '✎ editing on' : '✎ edit off'}
+          {isMobile ? (isEditMode ? 'edit on' : 'edit') : (isEditMode ? '✎ editing on' : '✎ edit off')}
         </button>
 
         <button
@@ -81,7 +84,7 @@ export default function AdminBanner() {
             background: 'transparent',
             border: '1px solid rgba(255,80,80,0.25)',
             color: 'rgba(255,100,100,0.6)',
-            padding: '3px 10px', borderRadius: '4px',
+            padding: isMobile ? '3px 8px' : '3px 10px', borderRadius: '4px',
             fontSize: '0.68rem', cursor: 'pointer',
             fontFamily: 'var(--font-mono)',
             transition: 'all 0.2s',

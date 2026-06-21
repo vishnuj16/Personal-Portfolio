@@ -59,6 +59,15 @@ body {
   cursor: default;
 }
 
+body, #root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+img {
+  max-width: 100%;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--black); }
@@ -252,4 +261,10 @@ input, textarea, select {
 @keyframes annCardHover {
   from { transform: translateY(0); }
   to   { transform: translateY(-3px); }
+}
+
+@media (max-width: 768px) {
+  html, body, #root {
+    overflow-x: hidden;
+  }
 }

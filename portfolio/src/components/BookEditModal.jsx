@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { createBook, updateBook, uploadFile, imgUrl } from '../api'
 import { RichTextEditor } from './RichText'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 const BOOK_TYPES = ['novel', 'novella', 'short story', 'collection', 'non-fiction', 'poetry']
 const GENRES = [
-  'literary fiction', 'thriller', 'mystery', 'sci-fi', 'fantasy',
+  'literary fiction', 'thriller', 'mystery', 'sci-fi', 'fantasy', 'slice of life', 'psychological thriller',
   'horror', 'romance', 'historical fiction', 'biography', 'self-help', 'essay', 'other',
 ]
 
@@ -201,6 +202,7 @@ const goldNavBtn = {
 }
 
 export default function BookEditModal({ book, onSave, onClose }) {
+  const isMobile = useMediaQuery(768)
   const isNew = !book?.id
   const [values, setValues] = useState({
     title: '', subtitle: '', description: '', genre: '',
@@ -256,7 +258,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
       position: 'fixed', inset: 0, zIndex: 10001,
       background: 'rgba(61,46,26,0.6)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-      padding: '36px 20px', overflowY: 'auto', animation: 'fadeIn 0.15s ease',
+      padding: isMobile ? '12px' : '36px 20px', overflowY: 'auto', animation: 'fadeIn 0.15s ease',
     }}>
       <div style={{
         width: '100%', maxWidth: 660, background: '#fdf8f0',
@@ -266,7 +268,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
       }}>
 
         {/* Header */}
-        <div style={{ padding: '26px 32px 18px', borderBottom: '1px solid rgba(201,168,76,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: isMobile ? '20px 18px 14px' : '26px 32px 18px', borderBottom: '1px solid rgba(201,168,76,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <div style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: '#c9a84c', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 4 }}>{isNew ? 'New Work' : 'Edit Work'}</div>
             <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.35rem', color: '#3d2e1a', margin: 0, fontWeight: 700 }}>
@@ -276,11 +278,11 @@ export default function BookEditModal({ book, onSave, onClose }) {
           <button onClick={onClose} style={{ background: 'transparent', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 36, height: 36, cursor: 'pointer', color: '#9a8060', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         </div>
 
-        <div style={{ padding: '26px 32px 32px' }}>
+        <div style={{ padding: isMobile ? '18px' : '26px 32px 32px' }}>
 
           {/* Coming Soon toggle — shown first, controls what else appears */}
           <div style={{ marginBottom: 14, padding: '14px 16px', borderRadius: 10, background: values.coming_soon ? 'rgba(107,92,69,0.08)' : 'rgba(201,168,76,0.03)', border: `1px solid ${values.coming_soon ? 'rgba(107,92,69,0.2)' : 'rgba(201,168,76,0.1)'}`, transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 12 }}>
               <div>
                 <Label>Work in Progress / Coming Soon</Label>
                 <div style={{ fontFamily: "'Lora', serif", fontSize: '0.7rem', color: '#9a8060', fontStyle: 'italic', marginTop: -4 }}>
@@ -326,12 +328,12 @@ export default function BookEditModal({ book, onSave, onClose }) {
           {/* Theme colour */}
           <div style={{ marginBottom: 22, padding: '14px 16px', background: 'rgba(201,168,76,0.04)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.12)' }}>
             <Label sub="sets the hero background & card accents">Theme Colour</Label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+            <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: 12, marginTop: 6 }}>
               <input type="color" value={accent} onChange={e => set('theme_color', e.target.value)}
                 style={{ width: 46, height: 46, borderRadius: 9, border: '2px solid rgba(201,168,76,0.3)', cursor: 'pointer', padding: 2, background: 'transparent', flexShrink: 0 }} />
               <input value={accent} onChange={e => set('theme_color', e.target.value)} placeholder="#c9a84c"
                 style={{ ...F, fontFamily: 'monospace', letterSpacing: '0.06em', flex: 1 }} onFocus={focus} onBlur={blur} />
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 180 }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: isMobile ? '100%' : 180 }}>
                 {[
                   '#e63946','#c1121f','#e76f51','#f4a261',
                   '#e9c46a','#c9a84c','#2a9d8f','#52b788',
@@ -369,7 +371,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
           </div>
 
           {/* Format + Genre */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <Label>Format</Label>
               <select value={values.book_type} onChange={e => set('book_type', e.target.value)} style={{ ...F, cursor: 'pointer' }}>
@@ -404,7 +406,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
           </div>
 
           {/* Date + Pages + ISBN */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <Label>Published Date</Label>
               <GoldDatePicker
@@ -467,7 +469,7 @@ export default function BookEditModal({ book, onSave, onClose }) {
           )}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 26 }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexDirection: isMobile ? 'column-reverse' : 'row', marginTop: 26 }}>
             <button onClick={onClose} style={{ padding: '10px 22px', borderRadius: 8, background: 'transparent', border: '1px solid rgba(201,168,76,0.25)', fontFamily: "'Lora', serif", fontSize: '0.85rem', color: '#9a8060', cursor: 'pointer' }}>Cancel</button>
             <button onClick={handleSubmit} disabled={saving} style={{ padding: '10px 28px', borderRadius: 8, border: 'none', background: saving ? 'rgba(201,168,76,0.4)' : '#c9a84c', fontFamily: "'Playfair Display', serif", fontSize: '0.88rem', fontWeight: 600, color: '#1a1410', cursor: saving ? 'wait' : 'pointer', transition: 'all 0.2s' }}>
               {saving ? 'Saving…' : isNew ? 'Add to Library' : 'Save Changes'}

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { getEducation, createEducation, updateEducation, deleteEducation, imgUrl } from '../api'
 import EditModal from './EditModal'
 import EducationViewModal from './EducationViewModal'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 const EDU_FIELDS = [
   { key: 'logo_url',    label: 'institution logo', type: 'image-upload', bucket: 'education' },
@@ -79,6 +80,7 @@ function EduCard({ edu, isEditMode, onView, onEdit }) {
 
 export default function Education() {
   const { isEditMode } = useAuth()
+  const isMobile = useMediaQuery(768)
   const [education, setEducation] = useState([])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -89,12 +91,12 @@ export default function Education() {
 
   return (
     <section id="education" style={{ background: 'rgba(255,255,255,0.01)' }}>
-      <div style={{ padding: '60px 40px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ padding: isMobile ? '48px 20px' : '60px 40px', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ marginBottom: '48px' }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--cyan)', letterSpacing: '0.15em', marginBottom: '8px' }}>
             <span style={{ color: 'var(--text-muted)' }}>$ cat</span> ~/.education
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-sans)' }}>
               Education<span style={{ color: 'var(--cyan)' }}>.</span>
             </h2>
@@ -109,7 +111,7 @@ export default function Education() {
             // no education entries yet
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
             {education.map(edu => (
               <EduCard key={edu.id} edu={edu} isEditMode={isEditMode}
                 onView={setViewing}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getProjects, createProject, updateProject, deleteProject, getCategories, imgUrl } from '../api'
 import EditModal from './EditModal'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 const PROJECT_FIELDS = [
   { key: 'title',       label: 'title',       required: true },
@@ -35,7 +36,7 @@ const CYAN = '#00e5ff'
 const GREEN = '#00ff87'
 
 // ── Big Project Spotlight (the main showcase) ────────────────────────────────
-function ProjectSpotlight({ project, onView, isEditMode, onEdit }) {
+function ProjectSpotlight({ project, onView, isEditMode, onEdit, isMobile }) {
   const [hover, setHover] = useState(false)
   const s = STATUS[project.status] || STATUS['completed']
   const cover = project.cover_url ? imgUrl(project.cover_url) : null
@@ -48,8 +49,8 @@ function ProjectSpotlight({ project, onView, isEditMode, onEdit }) {
       style={{
         position: 'relative',
         display: 'grid',
-        gridTemplateColumns: cover ? '1fr 1fr' : '1fr',
-        minHeight: 480,
+        gridTemplateColumns: cover ? (isMobile ? '1fr' : '1fr 1fr') : '1fr',
+        minHeight: isMobile ? 'auto' : 480,
         background: PANEL,
         border: `1px solid ${hover ? 'rgba(0,229,255,0.35)' : BORDER}`,
         borderRadius: 16,
@@ -82,8 +83,8 @@ function ProjectSpotlight({ project, onView, isEditMode, onEdit }) {
       )}
 
       {/* Right: content */}
-      <div style={{
-        padding: '40px 44px',
+        <div style={{
+        padding: isMobile ? '24px 20px' : '40px 44px',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
         position: 'relative',
       }}>
@@ -149,8 +150,8 @@ function ProjectSpotlight({ project, onView, isEditMode, onEdit }) {
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 14, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {project.repo_url && (
               <a href={project.repo_url} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
@@ -232,6 +233,7 @@ function ProjectRow({ project, active, onClick }) {
 // ── Main Projects component ───────────────────────────────────────────────────
 export default function Projects({ onViewProject }) {
   const { isEditMode } = useAuth()
+  const isMobile = useMediaQuery(980)
   const [projects, setProjects]             = useState([])
   const [skillCategories, setSkillCategories] = useState([])
   const [showAdd, setShowAdd]               = useState(false)
@@ -285,7 +287,7 @@ export default function Projects({ onViewProject }) {
 
   return (
     <section id="projects">
-      <div style={{ padding: '60px 40px', maxWidth: 1280, margin: '0 auto' }}>
+      <div style={{ padding: isMobile ? '48px 20px' : '60px 40px', maxWidth: 1280, margin: '0 auto' }}>
 
         {/* Section header */}
         <div style={{ marginBottom: 48 }}>
@@ -319,10 +321,10 @@ export default function Projects({ onViewProject }) {
             {isEditMode && <div style={{ color: CYAN, cursor: 'pointer', fontSize: '0.75rem' }} onClick={() => setShowAdd(true)}>add your first project →</div>}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '280px 1fr', gap: 20, alignItems: 'start' }}>
 
             {/* Sidebar — project index */}
-            <div style={{ position: 'sticky', top: 20 }}>
+            <div style={{ position: isMobile ? 'relative' : 'sticky', top: 20 }}>
               {/* Terminal header */}
               <div style={{
                 background: PANEL, border: `1px solid ${BORDER}`, borderRadius: '10px 10px 0 0',
@@ -375,6 +377,7 @@ export default function Projects({ onViewProject }) {
                   isEditMode={isEditMode}
                   onView={onViewProject}
                   onEdit={setEditingProject}
+                  isMobile={isMobile}
                 />
               )}
 

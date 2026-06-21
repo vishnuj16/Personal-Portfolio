@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import LoginModal from './LoginModal'
 import { useAuth } from '../context/AuthContext'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 // ─── Copy-to-clipboard hook ───────────────────────────────────────────────────
 function useCopy() {
@@ -38,7 +39,8 @@ function ContactCard({ icon, label, value, href, copyValue, accent = 'var(--cyan
         display: 'flex', alignItems: 'center', gap: 16,
         transition: 'all 0.22s ease',
         boxShadow: hovered ? `0 0 24px ${accentAlpha(0.08)}` : 'none',
-        width: '260px',
+        width: '100%',
+        maxWidth: '260px',
         flexShrink: 0,
         flexGrow: 0,
       }}
@@ -131,6 +133,7 @@ function ContactCard({ icon, label, value, href, copyValue, accent = 'var(--cyan
 export default function Footer({ profile }) {
   const { isAdmin } = useAuth()
   const [showLogin, setShowLogin] = useState(false)
+  const isMobile = useMediaQuery(768)
   const year = new Date().getFullYear()
 
   const available = profile?.available
@@ -139,7 +142,7 @@ export default function Footer({ profile }) {
     <>
       {/* ── Contact Section ─────────────────────────────────────────────── */}
       <section id="contact" style={{
-        padding: '100px 40px 80px',
+        padding: isMobile ? '72px 20px 56px' : '100px 40px 80px',
         background: 'var(--black-alt)',
         borderTop: '1px solid var(--card-border)',
       }}>
@@ -170,7 +173,7 @@ export default function Footer({ profile }) {
               color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.75,
               maxWidth: '520px', margin: '0 auto 24px',
             }}>
-              Whether you have a product idea, need a technical collaborator, want to talk architecture —
+              Whether you have a product idea, need a technical collaborator, want to talk architecture -
               or just want to connect — I'm always up for a good conversation.
             </p>
 
@@ -282,7 +285,7 @@ export default function Footer({ profile }) {
       {/* ── Footer bar ───────────────────────────────────────────────────── */}
       <footer style={{
         borderTop: '1px solid var(--card-border)',
-        padding: '20px 40px',
+        padding: isMobile ? '18px 20px' : '20px 40px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: '12px',
         background: 'var(--black)',

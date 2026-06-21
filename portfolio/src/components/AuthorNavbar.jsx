@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import ModeSelector from './ModeSelector'
+import useMediaQuery from '../hooks/useMediaQuery'
 
 const authorNavLinks = [
   { label: 'Featured',      href: '#author-featured' },
@@ -14,12 +15,19 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
   const [scrolled, setScrolled] = useState(false)
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [logoHovered, setLogoHovered] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const isMobile = useMediaQuery(900)
+  const displayName = authorName?.trim() === 'Vishnu' ? 'Vishnu Vyas' : (authorName || 'Vishnu Vyas')
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    if (!isMobile) setMobileMenuOpen(false)
+  }, [isMobile])
 
   return (
     <>
@@ -30,7 +38,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
         backdropFilter: scrolled ? 'blur(16px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(201,168,76,0.2)' : 'none',
         boxShadow: scrolled ? '0 1px 24px rgba(61,46,26,0.08)' : 'none',
-        padding: '0 48px',
+        padding: isMobile ? '0 16px' : '0 48px',
       }}>
         <div style={{
           maxWidth: '1100px', margin: '0 auto',
@@ -57,7 +65,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
               opacity: logoHovered ? 0.7 : 1,
               textShadow: scrolled ? 'none' : '0 2px 12px rgba(0,0,0,0.3)',
             }}>
-              Author
+              {displayName}
             </span>
             {logoHovered && (
               <span style={{
@@ -77,41 +85,94 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
           </button>
 
           {/* ── Nav links ── */}
-          <div style={{ display: 'flex', gap: '36px', alignItems: 'center' }}>
+          {isMobile ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {latestAnnouncement && (
+                <AnnouncementBell
+                  announcement={latestAnnouncement}
+                  scrolled={scrolled}
+                  onClick={onAnnouncementClick}
+                />
+              )}
+              <button
+                onClick={() => setMobileMenuOpen(v => !v)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(201,168,76,0.25)',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  color: scrolled ? '#6b5c45' : '#f5f0e8',
+                  fontFamily: "'Lora', Georgia, serif",
+                  fontSize: '0.78rem',
+                }}
+              >
+                {mobileMenuOpen ? 'Close' : 'Menu'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '36px', alignItems: 'center' }}>
+              {authorNavLinks.map(link => (
+                <button key={link.label}
+                  onClick={() => {
+                    const id = link.href.replace('#', '')
+                    const el = document.getElementById(id)
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  style={{
+                    fontFamily: "'Lora', Georgia, serif",
+                    fontSize: '0.88rem',
+                    color: scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)',
+                    textDecoration: 'none',
+                    background: 'none', border: 'none', padding: 0,
+                    transition: 'color 0.2s',
+                    letterSpacing: '0.02em',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => e.target.style.color = scrolled ? '#c9a84c' : '#f5f0e8'}
+                  onMouseLeave={e => e.target.style.color = scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
+                >
+                  {link.label}
+                </button>
+              ))}
+
+              {latestAnnouncement && (
+                <AnnouncementBell
+                  announcement={latestAnnouncement}
+                  scrolled={scrolled}
+                  onClick={onAnnouncementClick}
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {isMobile && mobileMenuOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 0 14px' }}>
             {authorNavLinks.map(link => (
-              <button key={link.label}
+              <button
+                key={link.label}
                 onClick={() => {
                   const id = link.href.replace('#', '')
                   const el = document.getElementById(id)
                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  setMobileMenuOpen(false)
                 }}
                 style={{
                   fontFamily: "'Lora', Georgia, serif",
-                  fontSize: '0.88rem',
-                  color: scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)',
-                  textDecoration: 'none',
-                  background: 'none', border: 'none', padding: 0,
-                  transition: 'color 0.2s',
-                  letterSpacing: '0.02em',
-                  cursor: 'pointer',
+                  fontSize: '0.86rem',
+                  color: scrolled ? '#6b5c45' : '#f5f0e8',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: '1px solid rgba(201,168,76,0.15)',
+                  textAlign: 'left',
+                  padding: '8px 0',
                 }}
-                onMouseEnter={e => e.target.style.color = scrolled ? '#c9a84c' : '#f5f0e8'}
-                onMouseLeave={e => e.target.style.color = scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
               >
                 {link.label}
               </button>
             ))}
-
-            {/* ── Announcement bell ── */}
-            {latestAnnouncement && (
-              <AnnouncementBell
-                announcement={latestAnnouncement}
-                scrolled={scrolled}
-                onClick={onAnnouncementClick}
-              />
-            )}
           </div>
-        </div>
+        )}
       </nav>
 
       {showModeSelector && (
