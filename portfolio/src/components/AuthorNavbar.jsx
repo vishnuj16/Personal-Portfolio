@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import ModeSelector from './ModeSelector'
 import useMediaQuery from '../hooks/useMediaQuery'
+import storiesLogo from '../static/StoriesByVyasLogoWhite.png'
 
 const authorNavLinks = [
   { label: 'Featured',      href: '#author-featured' },
@@ -17,7 +18,6 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
   const [logoHovered, setLogoHovered] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const isMobile = useMediaQuery(900)
-  const displayName = authorName?.trim() === 'Vishnu' ? 'Vishnu Vyas' : (authorName || 'Vishnu Vyas')
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80)
@@ -43,7 +43,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
         <div style={{
           maxWidth: '1100px', margin: '0 auto',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          height: '68px',
+          height: isMobile ? '102px' : '126px',
         }}>
 
           {/* ── Logo ── */}
@@ -54,19 +54,28 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
             style={{
               background: 'transparent', border: 'none', padding: 0,
               cursor: 'pointer', position: 'relative',
+              display: 'flex', alignItems: 'center',
+              marginLeft: isMobile ? 2 : 6,
+              marginTop: isMobile ? 6 : 10,
             }}
           >
-            <span style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: '1.15rem', fontWeight: 700,
-              color: scrolled ? '#3d2e1a' : '#f5f0e8',
-              letterSpacing: '0.02em',
-              transition: 'all 0.3s',
-              opacity: logoHovered ? 0.7 : 1,
-              textShadow: scrolled ? 'none' : '0 2px 12px rgba(0,0,0,0.3)',
-            }}>
-              {displayName}
-            </span>
+            <img
+              src={storiesLogo}
+              alt="Stories by Vyas"
+              style={{
+                display: 'block',
+                height: isMobile ? 102 : 126,
+                width: 'auto',
+                maxWidth: isMobile ? '510px' : '945px',
+                objectFit: 'contain',
+                opacity: logoHovered ? 0.82 : 1,
+                transition: 'opacity 0.25s ease, transform 0.25s ease',
+                transform: logoHovered ? 'translateY(-1px)' : 'translateY(0)',
+                filter: scrolled
+                  ? 'drop-shadow(0 1px 1px rgba(61,46,26,0.18))'
+                  : 'drop-shadow(0 2px 12px rgba(0,0,0,0.3))',
+              }}
+            />
             {logoHovered && (
               <span style={{
                 position: 'absolute', top: '100%', left: 0, marginTop: 8,
@@ -101,7 +110,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                   border: '1px solid rgba(201,168,76,0.25)',
                   borderRadius: 6,
                   padding: '6px 10px',
-                  color: scrolled ? '#6b5c45' : '#f5f0e8',
+                  color: scrolled || mobileMenuOpen ? '#6b5c45' : '#f5f0e8',
                   fontFamily: "'Lora', Georgia, serif",
                   fontSize: '0.78rem',
                 }}
@@ -147,7 +156,22 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
         </div>
 
         {isMobile && mobileMenuOpen && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 0 14px' }}>
+          <div style={{
+            position: 'fixed',
+            top: `calc(68px + ${adminOffset}px)`,
+            left: 0,
+            right: 0,
+            zIndex: 998,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            padding: '12px 16px 16px',
+            background: 'rgba(245,240,232,0.82)',
+            backdropFilter: 'blur(26px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(26px) saturate(1.4)',
+            borderBottom: '1px solid rgba(201,168,76,0.16)',
+            boxShadow: '0 18px 36px rgba(61,46,26,0.12)',
+          }}>
             {authorNavLinks.map(link => (
               <button
                 key={link.label}
@@ -160,7 +184,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                 style={{
                   fontFamily: "'Lora', Georgia, serif",
                   fontSize: '0.86rem',
-                  color: scrolled ? '#6b5c45' : '#f5f0e8',
+                  color: '#6b5c45',
                   background: 'transparent',
                   border: 'none',
                   borderBottom: '1px solid rgba(201,168,76,0.15)',
