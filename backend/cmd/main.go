@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -22,8 +25,6 @@ func main() {
 		log.Println("No .env file found, relying on environment variables")
 	}
 
-	fmt.Println("Loaded ENV: ", os.Getenv("ADMIN_PASSKEY"), os.Getenv("JWT_SECRET"))
-
 	// Validate required env vars
 	if os.Getenv("ADMIN_PASSKEY") == "" || os.Getenv("JWT_SECRET") == "" {
 		log.Fatal("ADMIN_PASSKEY and JWT_SECRET must be set")
@@ -37,31 +38,29 @@ func main() {
 	database.Init(dbPath)
 
 	// Gin mode
-	if os.Getenv("GIN_MODE") == "release" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	ginMode := resolveGinMode()
+	gin.SetMode(ginMode)
 
 	r := gin.Default()
+	if err := r.SetTrustedProxies(resolveTrustedProxies()); err != nil {
+		log.Fatalf("Failed to set trusted proxies: %v", err)
+	}
+
+	frontendDistDir, err := resolveFrontendDistDir()
+	if err != nil {
+		log.Printf("Frontend dist directory not found: %v", err)
+	}
 
 	// ─── CORS ────────────────────────────────────────────────────────────────
-	frontendOrigin := os.Getenv("FRONTEND_ORIGIN")
-	if frontendOrigin == "" {
-		frontendOrigin = "http://localhost:5173" // Vite default
+	corsConfig := buildCORSConfig(ginMode)
+	if corsConfig != nil {
+		r.Use(cors.New(*corsConfig))
 	}
-	r.Use(cors.New(cors.Config{
-		// AllowOrigins:     []string{frontendOrigin},
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			"http://[::1]:5173",
-		},
-		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
 
 	// ─── Static uploads ──────────────────────────────────────────────────────
+	if err := os.MkdirAll("./uploads", 0o755); err != nil {
+		log.Fatalf("Failed to create uploads directory: %v", err)
+	}
 	r.Static("/uploads", "./uploads")
 
 	// ─── Auth ────────────────────────────────────────────────────────────────
@@ -152,7 +151,22 @@ func main() {
 			c.JSON(404, gin.H{"error": "not found"})
 			return
 		}
-		c.File("./dist/index.html") // path to your built frontend
+
+		if frontendDistDir == "" {
+			c.JSON(404, gin.H{"error": "frontend build not found"})
+			return
+		}
+
+		requestPath := strings.TrimPrefix(filepath.Clean(c.Request.URL.Path), "/")
+		if requestPath != "." && requestPath != "" {
+			assetPath := filepath.Join(frontendDistDir, requestPath)
+			if info, err := os.Stat(assetPath); err == nil && !info.IsDir() {
+				c.File(assetPath)
+				return
+			}
+		}
+
+		c.File(filepath.Join(frontendDistDir, "index.html"))
 	})
 
 	port := os.Getenv("PORT")
@@ -160,8 +174,112 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🚀 Server running on :%s", port)
-	if err := r.Run(":" + port); err != nil {
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	log.Printf("Server running on :%s in %s mode", port, ginMode)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+func resolveGinMode() string {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("GIN_MODE")))
+	switch mode {
+	case gin.DebugMode, gin.TestMode, gin.ReleaseMode:
+		return mode
+	case "":
+		return gin.ReleaseMode
+	default:
+		log.Printf("Invalid GIN_MODE %q, defaulting to %s", mode, gin.ReleaseMode)
+		return gin.ReleaseMode
+	}
+}
+
+func buildCORSConfig(ginMode string) *cors.Config {
+	origins := parseCSVEnv("FRONTEND_ORIGIN")
+	if len(origins) == 0 && ginMode == gin.DebugMode {
+		origins = []string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			"http://[::1]:5173",
+		}
+	}
+
+	if len(origins) == 0 {
+		return nil
+	}
+
+	config := cors.Config{
+		AllowOrigins:     origins,
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+
+	if err := config.Validate(); err != nil {
+		log.Fatalf("Invalid CORS configuration: %v", err)
+	}
+
+	return &config
+}
+
+func resolveTrustedProxies() []string {
+	proxies := parseCSVEnv("TRUSTED_PROXIES")
+	if len(proxies) == 0 {
+		return nil
+	}
+	return proxies
+}
+
+func parseCSVEnv(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value != "" {
+			values = append(values, value)
+		}
+	}
+	return values
+}
+
+func resolveFrontendDistDir() (string, error) {
+	if configured := os.Getenv("FRONTEND_DIST_DIR"); configured != "" {
+		if info, err := os.Stat(configured); err == nil && info.IsDir() {
+			return configured, nil
+		}
+	}
+
+	candidates := []string{
+		"./portfolio/dist",
+		"../portfolio/dist",
+		"../../portfolio/dist",
+		"./dist",
+	}
+
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			absPath, err := filepath.Abs(candidate)
+			if err != nil {
+				return candidate, nil
+			}
+			return absPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("set FRONTEND_DIST_DIR or build the frontend into one of: %s", strings.Join(candidates, ", "))
 }
