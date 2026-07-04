@@ -6,6 +6,7 @@ portfolio/.env.local
 # --- Backend (Go) ---
 backend/bin/
 backend/main
+backend/server
 backend/.env
 # Ignore the SQLite database file so you don't overwrite 
 # your production data with local test data

@@ -311,23 +311,23 @@ function ResumeUploadZone({ onUploaded }) {
   )
 }
 
-function AvailableBadge() {
+function EmploymentBadge() {
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 7,
-      background: 'rgba(0,255,135,0.06)',
-      border: '1px solid rgba(0,255,135,0.25)',
+      background: 'rgba(0,229,255,0.08)',
+      border: '1px solid rgba(0,229,255,0.25)',
       padding: '6px 13px', borderRadius: '20px',
-      fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--green)',
+      fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--cyan)',
     }}>
       <span style={{
         width: 6, height: 6, borderRadius: '50%',
-        background: 'var(--green)',
-        boxShadow: '0 0 8px var(--green)',
+        background: 'var(--cyan)',
+        boxShadow: '0 0 8px var(--cyan)',
         animation: 'glow-pulse 2s infinite',
         flexShrink: 0,
       }} />
-      open to work
+      employed FT at Squareshift
     </div>
   )
 }
@@ -345,11 +345,18 @@ export default function Hero() {
 
   useEffect(() => {
     getProfile().then(setProfile).catch(() => setProfile({
-      name: 'Vishnu', tagline: 'Full Stack Developer',
-      bio: 'I build things for the web.', location: 'Chennai, India', available: true
+      name: 'Vishnu', tagline: 'Software Developer / Elastic Consultant',
+      bio: 'I build things for the web.', location: 'Chennai, India', available: false
     }))
     checkResume()
   }, [])
+
+  const displayTagline = profile?.tagline && profile.tagline.trim() !== '' && profile.tagline !== 'Full Stack Developer'
+    ? profile.tagline
+    : 'Software Developer / Elastic Consultant'
+
+  const displayStatus = 'employed_ft@squareshift'
+  const displayStatusLabel = 'employed'
 
   const handleSave = async (values) => {
     // Only send keys that belong to dev mode — never overwrite author_bio, author_tagline etc.
@@ -360,9 +367,9 @@ export default function Hero() {
 
   const termLines = profile ? [
     `whoami → ${profile.name || 'dev'}`,
-    `role   → ${profile.tagline || 'Developer'}`,
+    `role   → ${displayTagline}`,
     `loc    → ${profile.location || 'Earth'}`,
-    `status → ${profile.available ? 'open_to_work=true' : 'not_looking'}`,
+    `status → ${displayStatus}`,
     `stack  → [go, react, linux, docker, ...]`,
   ] : []
 
@@ -432,7 +439,7 @@ export default function Hero() {
               display: 'flex', alignItems: 'center', gap: '10px',
             }}>
               <span style={{ color: 'var(--cyan)', opacity: 0.5 }}>$</span>
-              <span style={{ color: 'var(--text-secondary)' }}>{profile.tagline || 'Full Stack Developer'}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{displayTagline}</span>
               <span style={{ width: 2, height: '1.1em', background: 'var(--cyan)', opacity: 0.7, animation: 'blink 1.1s step-end infinite', flexShrink: 0 }} />
             </div>
 
@@ -449,7 +456,7 @@ export default function Hero() {
 
             {/* Status row */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: '28px', alignItems: 'center' }}>
-              {profile.available && <AvailableBadge />}
+              <EmploymentBadge />
               {profile.location && (
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -532,7 +539,7 @@ export default function Hero() {
                 flexWrap: 'wrap',
                 background: 'rgba(0,229,255,0.015)',
               }}>
-                <StatPip label="status" value={profile.available ? 'open' : 'closed'} color={profile.available ? 'var(--green)' : '#6b7280'} />
+                <StatPip label="status" value={displayStatusLabel} color="var(--cyan)" />
                 <StatPip label="loc" value={profile.location || '—'} />
               </div>
             </div>
