@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getProfile, updateProfile, checkResume as checkResume_api, uploadResume } from '../api'
+import { apiUrl, getProfile, updateProfile, checkResume as checkResume_api, uploadResume } from '../api'
 import TerminalTyper from './TerminalTyper'
 import EditModal from './EditModal'
 import useMediaQuery from '../hooks/useMediaQuery'
@@ -111,19 +111,18 @@ function SocialPill({ url, type }) {
 }
 
 // ─── Resume section ───────────────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-
 function ResumeDownloadButton() {
   const [hovered, setHovered] = useState(false)
   const [dlLoading, setDlLoading] = useState(false)
 
-  const handleView = () => window.open(`${API_BASE}/api/resume`, '_blank')
+  const handleView = () => window.open(apiUrl('/api/resume'), '_blank')
 
   const handleDownload = async (e) => {
     e.stopPropagation()
     setDlLoading(true)
     try {
-      const resp = await fetch(`${API_BASE}/api/resume?download=true`)
+      const downloadUrl = apiUrl('/api/resume?download=true')
+      const resp = await fetch(downloadUrl)
       if (!resp.ok) throw new Error()
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
@@ -131,7 +130,7 @@ function ResumeDownloadButton() {
       a.href = url; a.download = 'resume.pdf'; a.click()
       URL.revokeObjectURL(url)
     } catch {
-      window.open(`${API_BASE}/api/resume?download=true`, '_blank')
+      window.open(apiUrl('/api/resume?download=true'), '_blank')
     } finally {
       setDlLoading(false)
     }

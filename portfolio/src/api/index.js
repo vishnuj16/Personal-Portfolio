@@ -1,5 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
+export const apiUrl = (path) => `${BASE_URL}${path}`
+
 let authToken = null
 
 export const setToken = (token) => { authToken = token }
@@ -19,7 +21,7 @@ const req = async (method, path, body = null, isAdmin = false, isMultipart = fal
     headers: headers(isAdmin, isMultipart),
   }
   if (body) opts.body = isMultipart ? body : JSON.stringify(body)
-  const res = await fetch(`${BASE_URL}${path}`, opts)
+  const res = await fetch(apiUrl(path), opts)
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Request failed')
   return data
@@ -81,13 +83,13 @@ export const deleteFile = (path) => req('DELETE', '/api/admin/upload', { path },
 export const imgUrl = (url) => {
   if (!url) return null
   if (url.startsWith('http')) return url
-  return `${BASE_URL}${url}`
+  return apiUrl(url)
 }
 
 // Resume
 // checkResume: raw fetch — HEAD returns no body so we must NOT use req() which calls res.json()
 export const checkResume = () =>
-  fetch(`${BASE_URL}/api/resume`, { method: 'HEAD' })
+  fetch(apiUrl('/api/resume'), { method: 'HEAD' })
     .then(r => r.ok)
     .catch(() => false)
 
