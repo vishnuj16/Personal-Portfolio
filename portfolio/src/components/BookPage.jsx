@@ -330,7 +330,7 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 36, alignItems: 'center' }}>
               <BuyButton href={book.amazon_url} label="Get on Amazon" primary accent={accent} />
               <BuyButton href={book.goodreads_url} label="Goodreads" accent={accent} />
-              <BuyButton href={book.other_buy_url} label="Buy Direct" accent={accent} />
+              <BuyButton href={book.other_buy_url} label="Read/Buy Direct" accent={accent} />
               <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} />
             </div>
 
@@ -511,7 +511,7 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
               <BuyButton href={book.amazon_url} label="Amazon" primary accent={accent} />
               <BuyButton href={book.goodreads_url} label="Goodreads" accent={accent} />
-              <BuyButton href={book.other_buy_url} label="Buy Direct" accent={accent} />
+              <BuyButton href={book.other_buy_url} label="Read/Buy Direct" accent={accent} />
               <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} />
             </div>
           </div>

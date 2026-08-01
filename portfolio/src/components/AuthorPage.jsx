@@ -215,7 +215,7 @@ const BookCard = memo(function BookCard({ book, isEditMode, onEdit, onDelete, on
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {book.amazon_url && <BuyLink href={book.amazon_url} accent={accent}>Amazon</BuyLink>}
             {book.goodreads_url && <BuyLink href={book.goodreads_url} accent={accent} secondary>Goodreads</BuyLink>}
-            {book.other_buy_url && <BuyLink href={book.other_buy_url} accent={accent} secondary>Buy Direct</BuyLink>}
+            {book.other_buy_url && <BuyLink href={book.other_buy_url} accent={accent} secondary>Read/Buy Direct</BuyLink>}
             <BookShareBtn slug={book.slug} title={book.title} accent={accent} compact />
           </div>
         )}
