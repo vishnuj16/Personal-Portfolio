@@ -75,10 +75,12 @@ function PortfolioApp() {
   }, [])
 
   // Called by AuthorPage when navigating to a book or back
-  const handleNavigate = useCallback((path) => {
-    window.history.pushState({}, '', path)
-    // If navigating back to /author, clear the slug so a re-mount won't re-open the book
-    if (path === '/author') setInitialSlug(null)
+  // Called by AuthorPage when opening/closing a book. `replace` is used when
+  // resolving a shared link so it doesn't leave a duplicate history entry.
+  // The slug state follows the URL, so back/forward can sync the open book.
+  const handleNavigate = useCallback((path, { replace = false } = {}) => {
+    window.history[replace ? 'replaceState' : 'pushState']({}, '', path)
+    setInitialSlug(parsePath().bookSlug)
   }, [])
 
   if (viewingProject) {

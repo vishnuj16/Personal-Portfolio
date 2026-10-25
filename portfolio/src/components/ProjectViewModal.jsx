@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { imgUrl } from '../api'
+import { safeHref } from '../utils/url'
 
 // Utility: render a metadata row
 function MetaRow({ label, value, accent }) {
@@ -15,7 +16,7 @@ function MetaRow({ label, value, accent }) {
 function LinkPill({ href, label, color }) {
   if (!href) return null
   return (
-    <a href={href} target="_blank" rel="noreferrer" style={{
+    <a href={safeHref(href)} target="_blank" rel="noreferrer" style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
       fontFamily: 'var(--font-mono)', fontSize: '0.72rem',
       color: color || 'var(--cyan)',

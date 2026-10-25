@@ -266,5 +266,7 @@ input, textarea, select {
 @media (max-width: 768px) {
   html, body, #root {
     overflow-x: hidden;
+    /* clip hides overflow without making a scroll container, so position: sticky keeps working */
+    overflow-x: clip;
   }
 }

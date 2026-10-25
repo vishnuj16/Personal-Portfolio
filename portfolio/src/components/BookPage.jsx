@@ -1,37 +1,50 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getBook, imgUrl } from '../api'
 import { renderRichText, stripToPlain } from './RichText'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { rgba, darken, isLight } from '../utils/color'
+import Cover3D from './Cover3D'
+import { placeReviews, HeroQuote, LaurelQuote, PraiseSlideshow, OpeningLine } from './BookPraise'
+import PraisePanel from './PraisePanel'
+import OpeningLineEditor from './OpeningLineEditor'
+import AuthorAdminBanner from './AuthorAdminBanner'
+import CatalogCard from './CatalogCard'
+import BlurbNight from './BlurbNight'
+import { BookLoading, BookNotFound } from './BookScreens'
+import { canImmerse, SceneBoundary } from '../three/gate'
+import { injectGaramond } from '../utils/fonts'
+import { safeHref } from '../utils/url'
 
-// ── Colour utilities ───────────────────────────────────────────────────────────
-function hexToRgb(hex) {
-  const h = (hex || '#c9a84c').replace('#', '')
-  return {
-    r: parseInt(h.slice(0,2),16),
-    g: parseInt(h.slice(2,4),16),
-    b: parseInt(h.slice(4,6),16),
-  }
-}
-function isLight(hex) {
-  const { r, g, b } = hexToRgb(hex)
-  return (r*299 + g*587 + b*114) / 1000 > 128
-}
-function rgba(hex, a) {
-  const { r, g, b } = hexToRgb(hex)
-  return `rgba(${r},${g},${b},${a})`
-}
-// Darken by percent (0–1)
-function darken(hex, amt) {
-  const { r, g, b } = hexToRgb(hex)
-  const d = v => Math.max(0, Math.floor(v * (1 - amt)))
-  return `rgb(${d(r)},${d(g)},${d(b)})`
-}
-// Lighten
-function lighten(hex, amt) {
-  const { r, g, b } = hexToRgb(hex)
-  const l = v => Math.min(255, Math.floor(v + (255 - v) * amt))
-  return `rgb(${l(r)},${l(g)},${l(b)})`
+// three.js only downloads when the immersive page actually renders
+const BookExperience = lazy(() => import('../three/BookExperience'))
+const ForgeExperience = lazy(() => import('../three/ForgeExperience'))
+
+// ── Pinned stage where the 3D book opens to its first page ─────────────────────
+function BookStage({ stageRef, innerRef, openingText, accent, isMobile }) {
+  return (
+    <section ref={stageRef} style={{ height: isMobile ? '215vh' : '200vh', position: 'relative' }}>
+      <div ref={innerRef} style={{
+        position: 'sticky', top: 0, height: '100vh',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
+        paddingBottom: isMobile ? 36 : 44, boxSizing: 'border-box', pointerEvents: 'none',
+      }}>
+        {/* The opening line is drawn on the 3D page; keep it in the DOM for screen readers */}
+        <p style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+          It begins: {openingText}
+        </p>
+        <div style={{
+          fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '0.72rem',
+          letterSpacing: '0.2em', textTransform: 'uppercase', color: rgba(accent, 0.75),
+          opacity: 'calc(1 - var(--book-open, 0) * 5)', transition: 'opacity 0.2s',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        }}>
+          keep scrolling to open the book
+          <span style={{ width: 1, height: 34, background: `linear-gradient(to bottom, ${rgba(accent, 0.6)}, transparent)` }} />
+        </div>
+      </div>
+    </section>
+  )
 }
 
 // ── Inject fonts once ──────────────────────────────────────────────────────────
@@ -50,7 +63,7 @@ function BuyButton({ href, label, primary, accent }) {
   if (!href) return null
   const light = isLight(accent)
   return (
-    <a href={href} target="_blank" rel="noreferrer"
+    <a href={safeHref(href)} target="_blank" rel="noreferrer"
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
@@ -73,26 +86,6 @@ function BuyButton({ href, label, primary, accent }) {
       {label}
       <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>↗</span>
     </a>
-  )
-}
-
-// ── Stat pill ──────────────────────────────────────────────────────────────────
-function StatPill({ label, value, accent }) {
-  if (!value) return null
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 2,
-      borderLeft: `2px solid ${rgba(accent, 0.4)}`, paddingLeft: 14,
-    }}>
-      <span style={{
-        fontFamily: "'Lora', serif", fontSize: '0.58rem',
-        color: rgba(accent, 0.7), letterSpacing: '0.12em', textTransform: 'uppercase',
-      }}>{label}</span>
-      <span style={{
-        fontFamily: "'Lora', serif", fontSize: '0.82rem',
-        color: '#f5f0e8', fontStyle: 'italic',
-      }}>{value}</span>
-    </div>
   )
 }
 
@@ -155,16 +148,32 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
   const heroRef = useRef(null)
   const [scrollY, setScrollY] = useState(0)
 
-  useEffect(() => { injectFonts() }, [])
+  // Immersive (three.js) mode and the DOM anchors the 3D scene follows
+  const [immersiveOk] = useState(canImmerse)
+  const [sceneFailed, setSceneFailed] = useState(false)
+  const [sceneReady, setSceneReady] = useState(false)
+  const onSceneReady = useCallback(() => setSceneReady(true), [])
+  const anchors = {
+    heroSlot: useRef(null), stage: useRef(null), stageInner: useRef(null),
+    about: useRef(null), blurbText: useRef(null), copySlot: useRef(null), callouts: useRef(null),
+    plaque: useRef(null), pull0: useRef(null), heroQuote: useRef(null),
+  }
 
+  useEffect(() => { injectFonts(); injectGaramond() }, [])
+
+  // List items don't carry reviews, so always fetch the full book;
+  // bookProp (when given) renders immediately in the meantime.
   useEffect(() => {
-    if (bookProp) { setBook(bookProp); return }
-    if (!bookId) return
-    getBook(bookId)
+    if (bookProp) setBook(bookProp)
+    const slug = bookProp?.slug || bookId
+    if (!slug) return
+    getBook(slug)
       .then(setBook)
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [bookId, bookProp])
+
+  const setReviews = (reviews) => setBook(b => ({ ...b, reviews }))
 
   useEffect(() => {
     const handler = () => setScrollY(window.scrollY)
@@ -175,27 +184,9 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
   // Scroll to top when page opens
   useEffect(() => { window.scrollTo(0, 0) }, [])
 
-  if (loading) return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#1a1410', fontFamily: "'Lora', serif", color: 'rgba(245,240,232,0.4)',
-      fontStyle: 'italic',
-    }}>
-      Loading…
-    </div>
-  )
+  if (loading) return <BookLoading />
 
-  if (!book) return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', gap: 20,
-      background: '#1a1410', fontFamily: "'Lora', serif",
-    }}>
-      <div style={{ fontSize: '3rem', opacity: 0.3 }}>📖</div>
-      <div style={{ color: 'rgba(245,240,232,0.4)', fontStyle: 'italic' }}>Book not found</div>
-      {onBack && <button onClick={onBack} style={{ background: 'transparent', border: '1px solid rgba(245,240,232,0.15)', borderRadius: 8, padding: '8px 20px', color: 'rgba(245,240,232,0.4)', cursor: 'pointer', fontFamily: "'Lora', serif" }}>← Back</button>}
-    </div>
-  )
+  if (!book) return <BookNotFound onBack={onBack} />
 
   const accent    = book.theme_color || '#c9a84c'
   const coverSrc  = book.cover_url ? imgUrl(book.cover_url) : null
@@ -209,19 +200,89 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
   // Hero colours — always dark bg with accent tints
   const heroBg = `linear-gradient(160deg, ${darken(accent, 0.72)} 0%, ${darken(accent, 0.55)} 50%, #1a1410 100%)`
 
+  const placed = placeReviews(book.reviews || [])
+
   const descWords = stripToPlain(book.description || '').split(' ')
   const shortDesc = descWords.length > 60 ? descWords.slice(0, 60).join(' ') + '…' : stripToPlain(book.description)
   const isLong = descWords.length > 60
 
+  const immersive = immersiveOk && !sceneFailed
+  // What the book's right-hand page shows: the opening line, else a "Praise" page, else the subtitle
+  const openingLine = book.opening_line?.trim()
+  const rightPage = openingLine
+    ? { label: 'IT BEGINS…', text: openingLine }
+    : placed.hero
+      ? { label: 'PRAISE', text: `“${placed.hero.quote}”`, attribution: placed.hero.reviewer || '' }
+      : { label: '', text: book.subtitle || book.title }
+  const openingText = rightPage.text
+  // Desktop immersive: details become hairline callouts around the 3D book
+  const minimalHero = immersive && !isMobile
+  // Book details engraved on the 3D gold plaque beside the blurb
+  const cap = v => v && v.charAt(0).toUpperCase() + v.slice(1)
+  const details = [
+    ['Format', cap(book.book_type)],
+    ['Genre', cap(book.genre)],
+    ['Pages', book.pages],
+    ['Published', book.published_at && new Date(book.published_at).toLocaleDateString('en-GB', { year: 'numeric', month: 'long' })],
+    ['Imprint', book.publisher || (book.self_published ? 'Self-published' : null)],
+    ['ISBN', book.isbn],
+  ].filter(([, v]) => v).map(([k, v]) => [k, String(v)])
+  const plaque = details.length ? {
+    title: book.title, rows: details,
+    stamp: book.new_release ? '— New Release —' : book.published_at ? `First published ${book.published_at.slice(0, 4)}` : '',
+  } : null
+  const callouts = [
+    book.published_at && ['Published', new Date(book.published_at).toLocaleDateString('en-GB', { year: 'numeric', month: 'short' })],
+    book.pages && ['Extent', `${book.pages} pages`],
+    (book.publisher || book.self_published) && ['Imprint', book.publisher || 'Self-published'],
+  ].filter(Boolean)
+  const slotW = isMobile ? 220 : 320
+  const slotH = isMobile ? 330 : 420
+  const hasBuyLinks = book.amazon_url || book.goodreads_url || book.other_buy_url
+
   return (
-    <div style={{ fontFamily: "'Lora', Georgia, serif", background: '#0e0b08', color: '#f5f0e8', minHeight: '100vh' }}>
+    <div style={{ fontFamily: "'Lora', Georgia, serif", background: immersive ? '#070605' : '#0e0b08', color: '#f5f0e8', minHeight: '100vh' }}>
       <ScrollProgress accent={accent} />
+      <AuthorAdminBanner />
+
+      {immersive && (
+        <SceneBoundary onFail={() => setSceneFailed(true)}>
+          <Suspense fallback={null}>
+            <BookExperience
+              book={book} accent={accent} coverSrc={coverSrc} page={rightPage} plaque={plaque}
+              anchors={anchors} isMobile={isMobile} onReady={onSceneReady}
+            />
+          </Suspense>
+        </SceneBoundary>
+      )}
+
+      {minimalHero && callouts.length > 0 && (
+        <div ref={anchors.callouts} aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: 0 }}>
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+            {callouts.map(([label]) => (
+              <g key={label}>
+                <line stroke={rgba(accent, 0.45)} strokeWidth="1" />
+                <circle r="2.5" fill={accent} />
+              </g>
+            ))}
+          </svg>
+          {callouts.map(([label, value]) => (
+            <div key={label} data-label style={{ position: 'absolute', left: 0, top: 0, whiteSpace: 'nowrap', lineHeight: 1.25 }}>
+              <div style={{ fontFamily: "'Lora', serif", fontSize: '0.56rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: rgba(accent, 0.85) }}>{label}</div>
+              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontStyle: 'italic', fontSize: '0.92rem', color: 'rgba(245,240,232,0.82)' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Everything readable sits above the fixed 3D canvas */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
 
       {/* ── HERO ───────────────────────────────────────────────────────────── */}
       <section ref={heroRef} style={{
         minHeight: '100vh', position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center',
-        background: heroBg,
+        background: immersive ? 'transparent' : heroBg,
       }}>
         {/* Noise texture */}
         <div style={{
@@ -247,7 +308,7 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
 
         {/* Back button */}
         {onBack && (
-          <div style={{ position: 'absolute', top: isMobile ? 20 : 28, left: isMobile ? 20 : 40, zIndex: 10 }}>
+          <div style={{ position: 'absolute', top: (isMobile ? 20 : 28) + (isAdmin ? 37 : 0), left: isMobile ? 20 : 40, zIndex: 10 }}>
             <BackButton onBack={onBack} accent={accent} />
           </div>
         )}
@@ -300,8 +361,12 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
               }}>{book.subtitle}</div>
             )}
 
+            {/* Top starred review — takes the blurb's spot; the full blurb is in About */}
+            {/* Top review (classic page). In immersive mode it sits under the 3D book instead */}
+            {!immersive && <HeroQuote review={placed.hero} accent={accent} />}
+
             {/* Description */}
-            {book.description && (
+            {book.description && !placed.hero && (
               <div style={{ marginBottom: 36 }}>
                 <div style={{
                   fontFamily: "'Lora', Georgia, serif",
@@ -334,53 +399,25 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
               <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} />
             </div>
 
-            {/* Stats */}
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-              <StatPill label="Format" value={book.book_type} accent={accent} />
-              <StatPill label="Genre" value={book.genre} accent={accent} />
-              <StatPill label="Pages" value={book.pages} accent={accent} />
-              <StatPill label="Published" value={book.published_at ? book.published_at.slice(0,7) : null} accent={accent} />
-              {book.publisher && <StatPill label="Publisher" value={book.publisher} accent={accent} />}
-              {book.isbn && <StatPill label="ISBN" value={book.isbn} accent={accent} />}
-            </div>
           </div>
 
-          {/* Right — cover */}
-          {coverSrc && (
-            <div style={{
-              display: 'flex', justifyContent: 'center', alignItems: 'center',
-              animation: 'fadeInUp 0.7s ease 0.15s both',
-            }}>
-              <div style={{
-                position: 'relative',
-                filter: `drop-shadow(0 30px 70px rgba(0,0,0,0.65)) drop-shadow(0 8px 20px ${rgba(accent, 0.3)})`,
-              }}>
-                {/* Glow behind cover */}
-                <div style={{
-                  position: 'absolute', inset: -30, borderRadius: 20,
-                  background: `radial-gradient(ellipse, ${rgba(accent, 0.3)} 0%, transparent 70%)`,
-                  filter: 'blur(20px)',
-                  pointerEvents: 'none',
-                }} />
-                <img
-                  src={coverSrc}
-                  alt={book.title}
-                  style={{
-                    maxHeight: 500, maxWidth: 360, borderRadius: 8,
-                    display: 'block', position: 'relative',
-                    transform: `perspective(800px) rotateY(-4deg) rotateX(1deg)`,
-                    transition: 'transform 0.4s ease',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) scale(1.02)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'perspective(800px) rotateY(-4deg) rotateX(1deg)' }}
-                />
-                {/* Shimmer edge */}
-                <div style={{
-                  position: 'absolute', inset: -1, borderRadius: 9,
-                  background: `linear-gradient(135deg, ${rgba(accent, 0.5)} 0%, transparent 40%, ${rgba(accent, 0.15)} 100%)`,
-                  pointerEvents: 'none',
-                }} />
+          {/* Right — cover. In immersive mode this is an empty slot the 3D book docks into;
+              the CSS book shows until the scene is ready, then fades out. */}
+          {immersive ? (
+            <div>
+              <div ref={anchors.heroSlot} style={{ width: slotW, height: slotH, margin: '0 auto', position: 'relative' }}>
+                {coverSrc && (
+                  <div style={{ position: 'absolute', inset: 0, opacity: sceneReady ? 0 : 1, transition: 'opacity 0.9s ease', pointerEvents: 'none' }}>
+                    <Cover3D src={coverSrc} title={book.title} accent={accent} pages={book.pages} isMobile={isMobile} />
+                  </div>
+                )}
               </div>
+              {/* Top review under the book, framed by 3D gold laurels */}
+              <LaurelQuote review={placed.hero} anchorRef={anchors.heroQuote} isMobile={isMobile} />
+            </div>
+          ) : coverSrc && (
+            <div style={{ animation: 'fadeInUp 0.7s ease 0.15s both' }}>
+              <Cover3D src={coverSrc} title={book.title} accent={accent} pages={book.pages} isMobile={isMobile} />
             </div>
           )}
         </div>
@@ -388,7 +425,8 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
         {/* Scroll cue */}
         <div style={{
           position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          // the hero is taller than the screen on phones, so the cue would sit on top of the content
+          display: isMobile ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           animation: 'fadeInUp 1s ease 1.2s both',
         }}>
           <div style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', letterSpacing: '0.18em', color: rgba(accent, 0.4), textTransform: 'uppercase' }}>scroll</div>
@@ -396,9 +434,29 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
         </div>
       </section>
 
-      {/* ── ABOUT THE BOOK ────────────────────────────────────────────────── */}
-      <section style={{ background: '#fdf8f0', color: '#3d2e1a', padding: '96px 48px' }}>
-        <div style={{ maxWidth: 820, margin: '0 auto' }}>
+      {immersive && (
+        <BookStage stageRef={anchors.stage} innerRef={anchors.stageInner}
+          openingText={openingText} accent={accent} isMobile={isMobile} />
+      )}
+
+      {/* Every review except the hero's, in one slideshow before the blurb */}
+      <PraiseSlideshow reviews={placed.slides} accent={accent} transparent={immersive}
+        anchorRef={anchors.pull0} isMobile={isMobile} />
+
+      {!immersive && <OpeningLine text={book.opening_line} accent={accent} isMobile={isMobile} />}
+
+      {/* ── ABOUT THE BOOK (blurb + catalogue card with the book details) ── */}
+      <section ref={anchors.about} style={{
+        background: immersive ? 'transparent' : '#fdf8f0', color: '#3d2e1a',
+        padding: immersive ? (isMobile ? '72px 22px 96px' : '120px 48px 150px') : (isMobile ? '72px 20px' : '96px 48px'),
+      }}>
+        {immersive ? (
+          // Drop cap only when the blurb opens with a letter (not markup like ** or #)
+          <BlurbNight book={book} isMobile={isMobile} textRef={anchors.blurbText}
+            plaqueRef={anchors.plaque} details={details}
+            dropCap={/^["“']?[A-Za-z]/.test((book.description || '').trim())} />
+        ) : (
+        <div style={{ maxWidth: 1040, margin: '0 auto' }}>
           {/* Chapter ornament */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 52 }}>
             <div style={{ flex: 1, height: 1, background: rgba(accent, 0.2) }} />
@@ -422,73 +480,41 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
             fontWeight: 700, color: '#3d2e1a', margin: '0 0 28px', lineHeight: 1.22,
           }}>{book.title}</h2>
 
-          {book.description && (
-            <div style={{
-              fontFamily: "'Lora', Georgia, serif", fontSize: '1.02rem',
-              color: '#6b5c45', lineHeight: 1.95,
-              borderLeft: `3px solid ${rgba(accent, 0.35)}`, paddingLeft: 28,
-            }}>
-              {renderRichText(book.description, {
+          <div style={{
+            display: 'grid', alignItems: 'start',
+            gridTemplateColumns: isMobile || !book.description ? '1fr' : 'minmax(0, 1fr) 300px',
+            gap: isMobile ? 48 : 64,
+          }}>
+            {book.description && (
+              <div style={{
                 fontFamily: "'Lora', Georgia, serif", fontSize: '1.02rem',
                 color: '#6b5c45', lineHeight: 1.95,
-                headingColor: '#3d2e1a', accentColor: accent,
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── BOOK DETAILS ──────────────────────────────────────────────────── */}
-      <section style={{
-        background: darken(accent, 0.7),
-        padding: '80px 48px',
-      }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{
-            fontFamily: "'Lora', serif", fontSize: '0.7rem',
-            color: rgba(accent, 0.7), letterSpacing: '0.2em',
-            textTransform: 'uppercase', marginBottom: 36, textAlign: 'center',
-          }}>Book Details</div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 1,
-            border: `1px solid ${rgba(accent, 0.15)}`,
-            borderRadius: 12, overflow: 'hidden',
-          }}>
-            {[
-              { label: 'Format',      value: book.book_type },
-              { label: 'Genre',       value: book.genre },
-              { label: 'Pages',       value: book.pages },
-              { label: 'Published',   value: book.published_at ? new Date(book.published_at).toLocaleDateString('en-GB', { year: 'numeric', month: 'long' }) : null },
-              { label: 'Publisher',   value: book.publisher || (book.self_published ? 'Self-Published' : null) },
-              { label: 'ISBN',        value: book.isbn },
-            ].filter(d => d.value).map((d, i) => (
-              <div key={i} style={{
-                padding: '22px 24px',
-                background: rgba(accent, 0.06),
-                borderRight: `1px solid ${rgba(accent, 0.1)}`,
+                borderLeft: `3px solid ${rgba(accent, 0.35)}`, paddingLeft: isMobile ? 18 : 28,
               }}>
-                <div style={{
-                  fontFamily: "'Lora', serif", fontSize: '0.6rem',
-                  color: rgba(accent, 0.6), letterSpacing: '0.15em',
-                  textTransform: 'uppercase', marginBottom: 6,
-                }}>{d.label}</div>
-                <div style={{
-                  fontFamily: "'Playfair Display', serif", fontSize: '1rem',
-                  color: '#f5f0e8', fontWeight: 600,
-                }}>{d.value}</div>
+                {renderRichText(book.description, {
+                  fontFamily: "'Lora', Georgia, serif", fontSize: '1.02rem',
+                  color: '#6b5c45', lineHeight: 1.95,
+                  headingColor: '#3d2e1a', accentColor: accent,
+                })}
               </div>
-            ))}
+            )}
+            <div style={isMobile ? {} : { position: 'sticky', top: 90 }}>
+              <CatalogCard book={book} accent={accent} isMobile={isMobile} />
+            </div>
           </div>
         </div>
+        )}
       </section>
 
+
       {/* ── GET YOUR COPY ─────────────────────────────────────────────────── */}
-      {(book.amazon_url || book.goodreads_url || book.other_buy_url) && (
-        <section style={{ background: '#fdf8f0', padding: '96px 48px' }}>
+      {hasBuyLinks && (
+        <section style={{
+          background: immersive ? 'transparent' : '#fdf8f0',
+          padding: immersive ? (isMobile ? '16px 20px 80px' : '24px 48px 110px') : (isMobile ? '80px 20px' : '96px 48px'),
+        }}>
           <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+            {immersive && <div ref={anchors.copySlot} style={{ width: isMobile ? 150 : 180, height: isMobile ? 210 : 250, margin: '0 auto 28px' }} />}
             <div style={{
               fontFamily: "'Lora', serif", fontSize: '0.72rem',
               color: accent, letterSpacing: '0.2em', textTransform: 'uppercase',
@@ -497,12 +523,12 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
             <h2 style={{
               fontFamily: "'Playfair Display', Georgia, serif",
               fontSize: 'clamp(1.8rem, 3.5vw, 2.4rem)',
-              fontWeight: 700, color: '#3d2e1a',
+              fontWeight: 700, color: immersive ? '#f5f0e8' : '#3d2e1a',
               margin: '0 0 14px',
             }}>Get Your Copy</h2>
             <p style={{
               fontFamily: "'Lora', serif", fontStyle: 'italic',
-              fontSize: '0.95rem', color: '#9a8060', lineHeight: 1.7,
+              fontSize: '0.95rem', color: immersive ? 'rgba(245,240,232,0.6)' : '#9a8060', lineHeight: 1.7,
               maxWidth: 420, margin: '0 auto 36px',
             }}>
               Find {book.title} at your preferred retailer or order direct.
@@ -512,7 +538,7 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
               <BuyButton href={book.amazon_url} label="Amazon" primary accent={accent} />
               <BuyButton href={book.goodreads_url} label="Goodreads" accent={accent} />
               <BuyButton href={book.other_buy_url} label="Read/Buy Direct" accent={accent} />
-              <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} />
+              <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} onLight={!immersive} />
             </div>
           </div>
         </section>
@@ -546,6 +572,14 @@ export default function BookPage({ bookId, book: bookProp, onBack }) {
         )}
       </footer>
 
+      </div>
+
+      {isAdmin && isEditMode && <PraisePanel bookId={book.id} reviews={book.reviews || []} onChange={setReviews} />}
+      {isAdmin && isEditMode && (
+        <OpeningLineEditor bookId={book.id} value={book.opening_line || ''} accent={accent}
+          onSaved={line => setBook(b => ({ ...b, opening_line: line }))} />
+      )}
+
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(24px); }
@@ -562,8 +596,27 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
   const isMobile = useMediaQuery(900)
   const heroBg = `linear-gradient(160deg, ${darken(accent, 0.78)} 0%, ${darken(accent, 0.62)} 60%, #0e0b06 100%)`
 
+  // Immersive "story taking shape" scene: the cover is drawn in, letters spiral
+  // into the book, an astrolabe turns behind it, and an hourglass keeps time below
+  const [immersiveOk] = useState(canImmerse)
+  const [sceneFailed, setSceneFailed] = useState(false)
+  const [sceneReady, setSceneReady] = useState(false)
+  const onSceneReady = useCallback(() => setSceneReady(true), [])
+  const immersive = immersiveOk && !sceneFailed
+  const anchors = { cover: useRef(null), hourglass: useRef(null) }
+  const showCover = immersive || coverSrc
+
   return (
-    <div style={{ fontFamily: "'Lora', Georgia, serif", background: '#0e0b06', color: '#f5f0e8', minHeight: '100vh' }}>
+    <div style={{ fontFamily: "'Lora', Georgia, serif", background: immersive ? '#07060a' : '#0e0b06', color: '#f5f0e8', minHeight: '100vh' }}>
+      {immersive && (
+        <SceneBoundary onFail={() => setSceneFailed(true)}>
+          <Suspense fallback={null}>
+            <ForgeExperience book={book} accent={accent} coverSrc={coverSrc}
+              anchors={anchors} isMobile={isMobile} onReady={onSceneReady} />
+          </Suspense>
+        </SceneBoundary>
+      )}
+      <div style={{ position: 'relative', zIndex: 1 }}>
 
       {/* Back + Share buttons */}
       <BookPageShareBtn slug={book.slug} title={book.title} accent={accent} fixed />
@@ -584,7 +637,7 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
       )}
 
       {/* Hero */}
-      <section style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', background: heroBg }}>
+      <section style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', background: immersive ? 'transparent' : heroBg }}>
         {/* Background glow orbs */}
         <div style={{ position: 'absolute', inset: 0, opacity: 0.035, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Crect width='1' height='1' fill='%23c9a84c'/%3E%3C/svg%3E")`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '20%', left: '15%', width: 700, height: 700, background: `radial-gradient(circle, ${rgba(accent, 0.12)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
@@ -606,7 +659,7 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
         })}
 
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '110px 20px 64px' : '120px 48px 80px', width: '100%' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: coverSrc ? (isMobile ? '1fr' : '1fr 1fr') : '1fr', gap: isMobile ? 32 : 72, alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: showCover ? (isMobile ? '1fr' : '1fr 1fr') : '1fr', gap: isMobile ? 32 : 72, alignItems: 'center' }}>
 
             {/* Text side */}
             <div style={{ animation: 'fadeInUp 0.8s ease' }}>
@@ -663,8 +716,27 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
               </div>
             </div>
 
-            {/* Cover side */}
-            {coverSrc && (
+            {/* Cover side. Immersive: a slot the 3D sketch-book renders into (flat cover until ready) */}
+            {immersive ? (
+              <div style={{ display: 'flex', justifyContent: 'center', animation: 'fadeInUp 0.8s ease 0.15s both' }}>
+                <div ref={anchors.cover} style={{ position: 'relative', width: isMobile ? 230 : 310, height: isMobile ? 330 : 440 }}>
+                  {coverSrc && (
+                    <img src={coverSrc} alt={book.title} style={{
+                      position: 'absolute', inset: '6% 6%', width: '88%', height: '88%', objectFit: 'cover', borderRadius: 6,
+                      opacity: sceneReady ? 0 : 1, transition: 'opacity 0.9s ease',
+                    }} />
+                  )}
+                  <div style={{
+                    position: 'absolute', bottom: 34, right: -18,
+                    background: rgba(accent, 0.92), color: darken(accent, 0.7),
+                    fontFamily: "'Playfair Display', serif", fontWeight: 900,
+                    fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase',
+                    padding: '5px 14px', borderRadius: 4, transform: 'rotate(-2deg)',
+                    boxShadow: `0 4px 16px ${rgba(accent, 0.4)}`,
+                  }}>Coming Soon</div>
+                </div>
+              </div>
+            ) : coverSrc && (
               <div style={{ display: 'flex', justifyContent: 'center', animation: 'fadeInUp 0.8s ease 0.15s both' }}>
                 <div style={{ position: 'relative' }}>
                   {/* Glow behind cover */}
@@ -706,8 +778,10 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
       </section>
 
       {/* ── Watch This Space section ───────────────────────────────────────── */}
-      <section style={{ padding: '96px 48px', background: 'linear-gradient(180deg, #0e0b06 0%, #1a1208 50%, #0e0b06 100%)' }}>
+      <section style={{ padding: isMobile ? '80px 22px' : '96px 48px', background: immersive ? 'transparent' : 'linear-gradient(180deg, #0e0b06 0%, #1a1208 50%, #0e0b06 100%)' }}>
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
+          {/* the 3D hourglass keeps time here */}
+          {immersive && <div ref={anchors.hourglass} aria-hidden style={{ width: 150, height: 240, margin: '0 auto 40px' }} />}
           {/* Ornamental heading */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 10 }}>
             <div style={{ flex: 1, maxWidth: 80, height: 1, background: `linear-gradient(to right, transparent, ${rgba(accent, 0.4)})` }} />
@@ -717,7 +791,7 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
 
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.65rem', color: rgba(accent, 0.3), letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 24 }}>·&nbsp;&nbsp;·&nbsp;&nbsp;·</div>
 
-          <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.05rem', color: 'rgba(245,240,232,0.38)', lineHeight: 2, margin: 0 }}>
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '1.05rem', color: immersive ? 'rgba(245,240,232,0.62)' : 'rgba(245,240,232,0.38)', lineHeight: 2, margin: 0 }}>
             This story is still being written. Check back for updates,
             {book.estimated_release ? ` or look for it ${book.estimated_release}.` : ' or follow along as it takes shape.'}
           </p>
@@ -730,6 +804,7 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
           </div>
         </div>
       </section>
+      </div>
 
       <style>{`
         @keyframes fadeInUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
@@ -742,7 +817,7 @@ function ComingSoonBookPage({ book, accent, coverSrc, lightAccent, onBack }) {
 
 // ── BookPageShareBtn ────────────────────────────────────────────────────────────
 // Used inside BookPage — self-contained with its own rgba helper reference
-function BookPageShareBtn({ slug, title, accent = '#c9a84c', fixed = false }) {
+function BookPageShareBtn({ slug, title, accent = '#c9a84c', fixed = false, onLight = false }) {
   const [copied,  setCopied]  = useState(false)
   const [hovered, setHovered] = useState(false)
 
@@ -778,7 +853,7 @@ function BookPageShareBtn({ slug, title, accent = '#c9a84c', fixed = false }) {
           ? rgba(accent, 0.2)
           : hovered ? rgba(accent, 0.12) : rgba(accent, 0.06),
         border: `1px solid ${copied ? rgba(accent, 0.65) : rgba(accent, 0.28)}`,
-        color: copied ? accent : hovered ? accent : 'rgba(245,240,232,0.55)',
+        color: copied || hovered ? accent : onLight ? '#6b5c45' : 'rgba(245,240,232,0.55)',
         transition: 'all 0.2s',
         boxShadow: hovered && !copied ? `0 4px 20px ${rgba(accent, 0.18)}` : 'none',
       }}

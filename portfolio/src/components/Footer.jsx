@@ -2,6 +2,7 @@ import { useState } from 'react'
 import LoginModal from './LoginModal'
 import { useAuth } from '../context/AuthContext'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { safeHref } from '../utils/url'
 
 // ─── Copy-to-clipboard hook ───────────────────────────────────────────────────
 function useCopy() {
@@ -66,7 +67,7 @@ function ContactCard({ icon, label, value, href, copyValue, accent = 'var(--cyan
           {label}
         </div>
         {href ? (
-          <a href={href} target={href.startsWith('mailto') || href.startsWith('tel') ? undefined : '_blank'}
+          <a href={safeHref(href)} target={href.startsWith('mailto') || href.startsWith('tel') ? undefined : '_blank'}
             rel="noreferrer"
             style={{
               fontFamily: 'var(--font-mono)', fontSize: '0.82rem',
@@ -241,7 +242,7 @@ export default function Footer({ profile }) {
               <ContactCard
                 label="linkedin"
                 value={profile.linkedin_url.replace('https://www.linkedin.com/in/', '').replace('https://linkedin.com/in/', '').replace(/\/$/, '')}
-                href={profile.linkedin_url}
+                href={safeHref(profile.linkedin_url)}
                 accent="#0a66c2"
                 icon={
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -255,7 +256,7 @@ export default function Footer({ profile }) {
               <ContactCard
                 label="github"
                 value={profile.github_url.replace('https://github.com/', '').replace(/\/$/, '')}
-                href={profile.github_url}
+                href={safeHref(profile.github_url)}
                 accent="var(--cyan)"
                 icon={
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

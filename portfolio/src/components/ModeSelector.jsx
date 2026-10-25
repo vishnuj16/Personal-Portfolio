@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
  * ModeSelector
  *
  * Full-screen frosted-glass overlay. The page behind bleeds through the blur.
- * Editorial split-screen: dark terminal world (left) vs warm parchment author world (right).
+ * Editorial split-screen: dark terminal world (left) vs the author's night sky (right).
  */
 export default function ModeSelector({ currentMode, onSelect, onClose }) {
   const [hovered, setHovered] = useState(null)
@@ -119,32 +119,32 @@ export default function ModeSelector({ currentMode, onSelect, onClose }) {
             style={{
               position: 'relative', cursor: 'pointer',
               background: authorHot
-                ? 'linear-gradient(155deg, #f9f2e4 0%, #ede2c8 100%)'
-                : 'linear-gradient(155deg, #f5ecdc 0%, #e6d9c2 100%)',
+                ? 'linear-gradient(155deg, #10183a 0%, #070b1c 100%)'
+                : 'linear-gradient(155deg, #0a1028 0%, #04060f 100%)',
               padding: '50px 38px 40px',
               transition: 'background 0.3s',
               display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
               minHeight: 360,
             }}
           >
-            {/* Paper grain */}
-            <div style={{ position: 'absolute', inset: 0, opacity: 0.35, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E")`, pointerEvents: 'none' }} />
+            {/* A scatter of stars: the author world is the night sky */}
+            <div style={{ position: 'absolute', inset: 0, opacity: authorHot ? 0.9 : 0.6, transition: 'opacity 0.4s', backgroundImage: 'radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 72% 12%, #ffe9c0 50%, transparent 51%), radial-gradient(1.5px 1.5px at 40% 34%, #dfe8ff 50%, transparent 51%), radial-gradient(1px 1px at 86% 46%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 24% 62%, #ffe9c0 50%, transparent 51%), radial-gradient(1.5px 1.5px at 60% 74%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 8% 88%, #dfe8ff 50%, transparent 51%), radial-gradient(1px 1px at 92% 84%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 50% 52%, #ffe9c0 50%, transparent 51%)', pointerEvents: 'none' }} />
             {/* Gold glow */}
-            <div style={{ position: 'absolute', top: '20%', right: '15%', width: 280, height: 280, background: `radial-gradient(circle, rgba(201,168,76,${authorHot ? 0.22 : 0.09}) 0%, transparent 65%)`, pointerEvents: 'none', transition: 'background 0.4s' }} />
+            <div style={{ position: 'absolute', top: '20%', right: '15%', width: 280, height: 280, background: `radial-gradient(circle, rgba(217,181,106,${authorHot ? 0.18 : 0.07}) 0%, transparent 65%)`, pointerEvents: 'none', transition: 'background 0.4s' }} />
             {/* Top bar */}
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2.5, background: currentMode === 'author' ? 'linear-gradient(to right, transparent, #c9a84c 30%, #c9a84c 70%, transparent)' : authorHot ? 'linear-gradient(to right, transparent, rgba(201,168,76,0.45), transparent)' : 'transparent', transition: 'background 0.3s' }} />
 
             <div style={{ position: 'relative' }}>
               <div style={{
                 width: 54, height: 54, borderRadius: 12, marginBottom: 26,
-                background: authorHot ? 'rgba(201,168,76,0.15)' : 'rgba(61,46,26,0.07)',
-                border: `1px solid ${authorHot ? 'rgba(201,168,76,0.55)' : 'rgba(107,92,69,0.18)'}`,
+                background: authorHot ? 'rgba(217,181,106,0.15)' : 'rgba(217,181,106,0.05)',
+                border: `1px solid ${authorHot ? 'rgba(217,181,106,0.6)' : 'rgba(217,181,106,0.2)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.25s',
                 boxShadow: authorHot ? '0 0 24px rgba(201,168,76,0.18)' : 'none',
               }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                  stroke={authorHot ? '#c9a84c' : 'rgba(107,92,69,0.5)'}
+                  stroke={authorHot ? '#ecd08f' : 'rgba(217,181,106,0.6)'}
                   strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
                   style={{ transition: 'stroke 0.25s' }}>
                   <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
@@ -152,10 +152,10 @@ export default function ModeSelector({ currentMode, onSelect, onClose }) {
                 </svg>
               </div>
 
-              <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '1.25rem', fontWeight: 900, color: authorHot ? '#8a6010' : '#3d2e1a', marginBottom: 6, letterSpacing: '-0.01em', transition: 'color 0.25s' }}>Author</div>
-              <div style={{ fontFamily: "'Lora',Georgia,serif", fontStyle: 'italic', fontSize: '0.65rem', color: 'rgba(107,92,69,0.5)', marginBottom: 22 }}>books · stories · writing</div>
+              <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: '1.25rem', fontWeight: 900, color: authorHot ? '#ecd08f' : '#f5f0e8', marginBottom: 6, letterSpacing: '-0.01em', transition: 'color 0.25s' }}>Author</div>
+              <div style={{ fontFamily: "'Lora',Georgia,serif", fontStyle: 'italic', fontSize: '0.65rem', color: 'rgba(217,181,106,0.6)', marginBottom: 22, letterSpacing: '0.06em' }}>books · stories · writing</div>
 
-              <div style={{ fontFamily: "'Lora',Georgia,serif", fontStyle: 'italic', fontSize: '0.8rem', color: 'rgba(107,92,69,0.6)', lineHeight: 1.85 }}>
+              <div style={{ fontFamily: "'EB Garamond','Lora',Georgia,serif", fontStyle: 'italic', fontSize: '0.95rem', color: 'rgba(245,236,214,0.62)', lineHeight: 1.7 }}>
                 <div>"Every story begins</div>
                 <div style={{ paddingLeft: 16 }}>with a single word."</div>
               </div>
@@ -167,7 +167,7 @@ export default function ModeSelector({ currentMode, onSelect, onClose }) {
                   <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#c9a84c', display: 'inline-block' }} />current
                 </span>
               ) : <span />}
-              <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: '0.62rem', color: authorHot ? 'rgba(138,96,16,0.75)' : 'transparent', transition: 'color 0.25s' }}>enter →</span>
+              <span style={{ fontFamily: "'Lora',serif", fontStyle: 'italic', fontSize: '0.62rem', color: authorHot ? 'rgba(236,208,143,0.85)' : 'transparent', transition: 'color 0.25s' }}>enter →</span>
             </div>
           </div>
         </div>

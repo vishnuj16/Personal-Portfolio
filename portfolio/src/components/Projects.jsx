@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { getProjects, createProject, updateProject, deleteProject, getCategories, imgUrl } from '../api'
 import EditModal from './EditModal'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { safeHref } from '../utils/url'
 
 const PROJECT_FIELDS = [
   { key: 'title',       label: 'title',       required: true },
@@ -153,7 +154,7 @@ function ProjectSpotlight({ project, onView, isEditMode, onEdit, isMobile }) {
         <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 14, paddingTop: 18, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {project.repo_url && (
-              <a href={project.repo_url} target="_blank" rel="noreferrer"
+              <a href={safeHref(project.repo_url)} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5, transition: 'color 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.color = CYAN}
@@ -164,7 +165,7 @@ function ProjectSpotlight({ project, onView, isEditMode, onEdit, isMobile }) {
               </a>
             )}
             {project.live_url && (
-              <a href={project.live_url} target="_blank" rel="noreferrer"
+              <a href={safeHref(project.live_url)} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5, transition: 'color 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.color = GREEN}

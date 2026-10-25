@@ -12,7 +12,7 @@ const authorNavLinks = [
   { label: 'Contact',       href: '#author-contact' },
 ]
 
-export default function AuthorNavbar({ adminOffset, currentMode = 'author', onModeChange, authorName, latestAnnouncement, onAnnouncementClick }) {
+export default function AuthorNavbar({ adminOffset, currentMode = 'author', onModeChange, authorName, latestAnnouncement, onAnnouncementClick, night = false }) {
   const [scrolled, setScrolled] = useState(false)
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [logoHovered, setLogoHovered] = useState(false)
@@ -29,15 +29,19 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
     if (!isMobile) setMobileMenuOpen(false)
   }, [isMobile])
 
+  // `night`: over the 3D sky the scrolled bar is dark glass, so text stays light
+  const lightBar = scrolled && !night
+
   return (
     <>
       <nav style={{
         position: 'fixed', top: adminOffset, left: 0, right: 0, zIndex: 999,
         transition: 'all 0.4s ease',
-        background: scrolled ? 'rgba(245,240,232,0.97)' : 'transparent',
+        background: scrolled ? (night ? 'rgba(5,8,18,0.7)' : 'rgba(245,240,232,0.97)') : 'transparent',
         backdropFilter: scrolled ? 'blur(16px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(201,168,76,0.2)' : 'none',
-        boxShadow: scrolled ? '0 1px 24px rgba(61,46,26,0.08)' : 'none',
+        WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
+        borderBottom: scrolled ? `1px solid ${night ? 'rgba(217,181,106,0.16)' : 'rgba(201,168,76,0.2)'}` : 'none',
+        boxShadow: scrolled ? (night ? '0 1px 30px rgba(0,0,0,0.5)' : '0 1px 24px rgba(61,46,26,0.08)') : 'none',
         padding: isMobile ? '0 16px' : '0 48px',
       }}>
         <div style={{
@@ -71,7 +75,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                 opacity: logoHovered ? 0.82 : 1,
                 transition: 'opacity 0.25s ease, transform 0.25s ease',
                 transform: logoHovered ? 'translateY(-1px)' : 'translateY(0)',
-                filter: scrolled
+                filter: lightBar
                   ? 'drop-shadow(0 1px 1px rgba(61,46,26,0.18))'
                   : 'drop-shadow(0 2px 12px rgba(0,0,0,0.3))',
               }}
@@ -99,7 +103,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
               {latestAnnouncement && (
                 <AnnouncementBell
                   announcement={latestAnnouncement}
-                  scrolled={scrolled}
+                  scrolled={lightBar}
                   onClick={onAnnouncementClick}
                 />
               )}
@@ -110,7 +114,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                   border: '1px solid rgba(201,168,76,0.25)',
                   borderRadius: 6,
                   padding: '6px 10px',
-                  color: scrolled || mobileMenuOpen ? '#6b5c45' : '#f5f0e8',
+                  color: (lightBar || mobileMenuOpen) && !night ? '#6b5c45' : '#f5f0e8',
                   fontFamily: "'Lora', Georgia, serif",
                   fontSize: '0.78rem',
                 }}
@@ -130,15 +134,15 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                   style={{
                     fontFamily: "'Lora', Georgia, serif",
                     fontSize: '0.88rem',
-                    color: scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)',
+                    color: lightBar ? '#6b5c45' : 'rgba(245,240,232,0.8)',
                     textDecoration: 'none',
                     background: 'none', border: 'none', padding: 0,
                     transition: 'color 0.2s',
                     letterSpacing: '0.02em',
                     cursor: 'pointer',
                   }}
-                  onMouseEnter={e => e.target.style.color = scrolled ? '#c9a84c' : '#f5f0e8'}
-                  onMouseLeave={e => e.target.style.color = scrolled ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
+                  onMouseEnter={e => e.target.style.color = lightBar ? '#c9a84c' : (night ? '#e8cf96' : '#f5f0e8')}
+                  onMouseLeave={e => e.target.style.color = lightBar ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
                 >
                   {link.label}
                 </button>
@@ -147,7 +151,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
               {latestAnnouncement && (
                 <AnnouncementBell
                   announcement={latestAnnouncement}
-                  scrolled={scrolled}
+                  scrolled={lightBar}
                   onClick={onAnnouncementClick}
                 />
               )}
@@ -166,7 +170,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
             flexDirection: 'column',
             gap: 8,
             padding: '12px 16px 16px',
-            background: 'rgba(245,240,232,0.82)',
+            background: night ? 'rgba(5,8,18,0.86)' : 'rgba(245,240,232,0.82)',
             backdropFilter: 'blur(26px) saturate(1.4)',
             WebkitBackdropFilter: 'blur(26px) saturate(1.4)',
             borderBottom: '1px solid rgba(201,168,76,0.16)',
@@ -184,7 +188,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                 style={{
                   fontFamily: "'Lora', Georgia, serif",
                   fontSize: '0.86rem',
-                  color: '#6b5c45',
+                  color: night ? 'rgba(245,240,232,0.85)' : '#6b5c45',
                   background: 'transparent',
                   border: 'none',
                   borderBottom: '1px solid rgba(201,168,76,0.15)',

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { imgUrl } from '../api'
+import { safeHref } from '../utils/url'
 
 export default function ExperienceViewModal({ exp, onClose, onEdit, isEditMode }) {
   const logoSrc = exp.logo_url ? imgUrl(exp.logo_url) : null
@@ -68,7 +69,7 @@ export default function ExperienceViewModal({ exp, onClose, onEdit, isEditMode }
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {exp.company_url ? (
-                  <a href={exp.company_url} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--cyan)', textDecoration: 'none' }}>{exp.company} ↗</a>
+                  <a href={safeHref(exp.company_url)} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--cyan)', textDecoration: 'none' }}>{exp.company} ↗</a>
                 ) : (
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--cyan)' }}>{exp.company}</span>
                 )}

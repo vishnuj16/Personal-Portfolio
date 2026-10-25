@@ -22,8 +22,17 @@ const req = async (method, path, body = null, isAdmin = false, isMultipart = fal
   }
   if (body) opts.body = isMultipart ? body : JSON.stringify(body)
   const res = await fetch(apiUrl(path), opts)
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Request failed')
+  // Not every response is JSON (proxy errors, empty bodies) — parse defensively
+  const text = await res.text()
+  let data = null
+  if (text) {
+    try { data = JSON.parse(text) } catch { data = null }
+  }
+  if (!res.ok) {
+    // An admin call rejected for auth means the session is over (expired or revoked)
+    if (res.status === 401 && isAdmin) window.dispatchEvent(new Event('auth:expired'))
+    throw new Error(data?.error || `Request failed (${res.status})`)
+  }
   return data
 }
 
@@ -117,6 +126,12 @@ export const updateBook = (id, data) => req('PATCH', `/api/admin/books/${id}`, d
 export const deleteBook = (id) => req('DELETE', `/api/admin/books/${id}`, null, true)
 export const setFeaturedBooks = (ids) => req('POST', '/api/admin/books/set-featured', { ids }, true)
 export const setNewRelease = (id) => req('POST', '/api/admin/books/set-new-release', { id }, true)
+
+// Book reviews
+export const createReview = (bookId, data) => req('POST', `/api/admin/books/${bookId}/reviews`, data, true)
+export const updateReview = (id, data) => req('PATCH', `/api/admin/reviews/${id}`, data, true)
+export const deleteReview = (id) => req('DELETE', `/api/admin/reviews/${id}`, null, true)
+export const reorderReviews = (bookId, ids) => req('POST', `/api/admin/books/${bookId}/reviews/reorder`, { ids }, true)
 
 // Announcements
 export const getAnnouncements = () => req('GET', '/api/announcements')

@@ -2,19 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { createBook, updateBook, uploadFile, imgUrl } from '../api'
 import { RichTextEditor } from './RichText'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { isLight } from '../utils/color'
 
 const BOOK_TYPES = ['novel', 'novella', 'short story', 'collection', 'non-fiction', 'poetry']
 const GENRES = [
   'literary fiction', 'thriller', 'mystery', 'sci-fi', 'fantasy', 'slice of life', 'psychological thriller',
   'horror', 'romance', 'historical fiction', 'biography', 'self-help', 'essay', 'other',
 ]
-
-function isLight(hex) {
-  if (!hex) return false
-  const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16)
-  return (r*299 + g*587 + b*114) / 1000 > 140
-}
 
 const F = {
   width: '100%', padding: '10px 14px',
@@ -235,6 +229,9 @@ export default function BookEditModal({ book, onSave, onClose }) {
 
   const handleSubmit = async () => {
     if (!values.title.trim()) { setError('Title is required'); return }
+    if (values.theme_color && !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(values.theme_color.trim())) {
+      setError('Theme colour must be a hex value like #c9a84c'); return
+    }
     setSaving(true); setError('')
     try {
       const payload = {
@@ -369,6 +366,16 @@ export default function BookEditModal({ book, onSave, onClose }) {
               placeholder="Write your blurb… use **bold**, _italic_, # Heading, - bullet list"
             />
           </div>
+
+          {/* Opening line */}
+          {!values.coming_soon && (
+            <div style={{ marginBottom: 14 }}>
+              <Label sub="shown large on the book page, right after the cover">Opening Line</Label>
+              <textarea value={values.opening_line || ''} onChange={e => set('opening_line', e.target.value)}
+                rows={2} placeholder="The first sentence of the book…"
+                style={{ ...F, resize: 'vertical', fontStyle: 'italic', lineHeight: 1.6 }} onFocus={focus} onBlur={blur} />
+            </div>
+          )}
 
           {/* Format + Genre */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>

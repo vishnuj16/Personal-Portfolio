@@ -21,6 +21,7 @@
  */
 
 import React from 'react'
+import { safeHref } from '../utils/url'
 
 // ── Strip ALL markup syntax to clean plain text (for cards, previews) ─────────
 // Handles multiline spans: **text\n** _text\n_ etc.
@@ -63,7 +64,7 @@ function parseInline(text, keyPrefix) {
   while ((m = re.exec(text)) !== null) {
     // Text before this match
     if (m.index > last) {
-      parts.push(<span key={`${keyPrefix}-t${i++}`}>{text.slice(last, m.index)}</span>)
+      parts.push(<span key={`${keyPrefix}-t${i++}`}>{stray(text.slice(last, m.index))}</span>)
     }
     const raw = m[0]
     const linkMatch = raw.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
@@ -72,7 +73,7 @@ function parseInline(text, keyPrefix) {
       parts.push(
         <a
           key={`${keyPrefix}-a${i++}`}
-          href={linkHref}
+          href={safeHref(linkHref)}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -114,18 +115,36 @@ function parseInline(text, keyPrefix) {
 
   // Remaining text
   if (last < text.length) {
-    parts.push(<span key={`${keyPrefix}-t${i++}`}>{text.slice(last)}</span>)
+    parts.push(<span key={`${keyPrefix}-t${i++}`}>{stray(text.slice(last))}</span>)
   }
 
-  return parts.length === 0 ? text : parts
+  return parts.length === 0 ? stray(text) : parts
 }
+
+// **a\nb** → **a**\n**b** (same for __underline__); blank lines stay blank
+function splitMultilineSpans(text) {
+  return text.replace(/(\*\*|__)([\s\S]+?)\1/g, (whole, mark, inner) => {
+    if (!inner.includes('\n')) return whole
+    return inner.split('\n').map(l => {
+      const t = l.trim()
+      if (!t) return l
+      // keep list / heading prefixes outside the markers
+      const m = l.match(/^(\s*(?:#{1,3}\s+|[-*]\s+|\d+\.\s+)?)(.*)$/)
+      return `${m[1]}${mark}${m[2]}${mark}`
+    }).join('\n')
+  })
+}
+
+// Markers left without a partner (e.g. a lone ** from a typo) shouldn't print
+const stray = s => s.replace(/\*\*|__/g, '')
 
 // ── Render rich text as styled JSX ───────────────────────────────────────────
 export function renderRichText(text, baseStyle = {}) {
   if (!text) return null
 
-  // Pre-process: normalise line endings
-  const normalised = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  // Pre-process: normalise line endings, and split bold/underline spans that cover
+  // several lines into one span per line (rendering works line by line)
+  const normalised = splitMultilineSpans(text.replace(/\r\n/g, '\n').replace(/\r/g, '\n'))
   const lines = normalised.split('\n')
   const nodes = []
   let ulBuf = []

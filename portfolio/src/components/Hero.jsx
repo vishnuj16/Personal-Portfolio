@@ -4,6 +4,7 @@ import { apiUrl, getProfile, updateProfile, checkResume as checkResume_api, uplo
 import TerminalTyper from './TerminalTyper'
 import EditModal from './EditModal'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { safeHref } from '../utils/url'
 
 // ─── Social link definitions ─────────────────────────────────────────────────
 // Each one has a monochrome SVG icon, label, and color accent.
@@ -80,7 +81,7 @@ function SocialPill({ url, type }) {
 
   return (
     <a
-      href={url}
+      href={safeHref(url)}
       target="_blank"
       rel="noreferrer"
       onMouseEnter={() => setHovered(true)}

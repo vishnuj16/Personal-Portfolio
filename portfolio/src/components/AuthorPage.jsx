@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, memo, lazy, Suspense } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getBooks, getProfile, updateProfile, deleteBook, imgUrl, uploadFile, setFeaturedBooks, setNewRelease } from '../api'
 import AuthorNavbar from './AuthorNavbar'
@@ -6,12 +6,20 @@ import AuthorAdminBanner from './AuthorAdminBanner'
 import BookEditModal from './BookEditModal'
 import LoginModal from './LoginModal'
 import BookPage from './BookPage'
+import { BookLoading, BookNotFound } from './BookScreens'
 import FeaturedBooksModal from './FeaturedBooksModal'
 import NewReleaseModal from './NewReleaseModal'
 import { stripToPlain } from './RichText'
 import AnnouncementPage from './AnnouncementPage'
 import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../api'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { canImmerse, SceneBoundary } from '../three/gate'
+import { injectGaramond } from '../utils/fonts'
+import { rgba, darken, isLight } from '../utils/color'
+import { safeHref } from '../utils/url'
+
+// three.js only downloads when the immersive page actually renders
+const AuthorExperience = lazy(() => import('../three/AuthorExperience'))
 
 // ─── Google Fonts (injected once) ────────────────────────────────────────────
 function injectFonts() {
@@ -23,34 +31,7 @@ function injectFonts() {
   document.head.appendChild(link)
 }
 
-// ─── Colour helpers ───────────────────────────────────────────────────────────
-function hexToRgb(hex) {
-  const h = (hex || '#c9a84c').replace('#', '')
-  return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) }
-}
-// Cache keyed by "hex|alpha" — avoids repeated parseInt on identical inputs
-const _rgbaCache = {}
-const _rgbCache  = {}
-function _rgb(hex) {
-  if (_rgbCache[hex]) return _rgbCache[hex]
-  return (_rgbCache[hex] = hexToRgb(hex))
-}
-function rgba(hex, a) {
-  const key = hex + '|' + a
-  if (_rgbaCache[key]) return _rgbaCache[key]
-  const { r, g, b } = _rgb(hex)
-  return (_rgbaCache[key] = `rgba(${r},${g},${b},${a})`)
-}
-function darken(hex, amt) {
-  const { r, g, b } = _rgb(hex)
-  const d = v => Math.max(0, Math.floor(v * (1 - amt)))
-  return `rgb(${d(r)},${d(g)},${d(b)})`
-}
-function isLight(hex) {
-  const { r, g, b } = _rgb(hex)
-  return (r*299 + g*587 + b*114) / 1000 > 128
-}
-
+// ─── Colour helpers: shared, tolerant of short/invalid hex (src/utils/color) ───
 // ─── Decorative ornament ──────────────────────────────────────────────────────
 const Ornament = ({ color = '#c9a84c', size = 24 }) => (
   <svg width={size} height={size * 0.4} viewBox="0 0 60 20" fill="none">
@@ -213,7 +194,7 @@ const BookCard = memo(function BookCard({ book, isEditMode, onEdit, onDelete, on
         )}
         {!isEditMode && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            {book.amazon_url && <BuyLink href={book.amazon_url} accent={accent}>Amazon</BuyLink>}
+            {book.amazon_url && <BuyLink href={safeHref(book.amazon_url)} accent={accent}>Amazon</BuyLink>}
             {book.goodreads_url && <BuyLink href={book.goodreads_url} accent={accent} secondary>Goodreads</BuyLink>}
             {book.other_buy_url && <BuyLink href={book.other_buy_url} accent={accent} secondary>Read/Buy Direct</BuyLink>}
             <BookShareBtn slug={book.slug} title={book.title} accent={accent} compact />
@@ -224,11 +205,113 @@ const BookCard = memo(function BookCard({ book, isEditMode, onEdit, onDelete, on
   )
 }) // end BookCard memo
 
+// ─── Calling card (immersive contact) ─────────────────────────────────────────
+function CallingCard({ href, label, value, icon }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <a href={safeHref(href)} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
+      display: 'flex', alignItems: 'center', gap: 16, padding: '20px 22px', borderRadius: 14, textDecoration: 'none',
+      background: 'linear-gradient(165deg, rgba(22,28,52,0.74) 0%, rgba(8,10,20,0.88) 100%)',
+      border: `1px solid ${hov ? 'rgba(217,181,106,0.55)' : 'rgba(217,181,106,0.2)'}`,
+      boxShadow: hov ? '0 22px 50px rgba(0,0,0,0.5), 0 0 40px rgba(217,181,106,0.12)' : '0 12px 30px rgba(0,0,0,0.35)',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      transform: hov ? 'translateY(-3px)' : 'none', transition: 'all 0.3s ease',
+    }}>
+      <span style={{
+        width: 46, height: 46, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'radial-gradient(circle at 35% 30%, #f6dc98 0%, #c99a48 55%, #7a5418 100%)',
+        boxShadow: hov ? '0 0 22px rgba(217,181,106,0.6)' : '0 0 12px rgba(217,181,106,0.25)', transition: 'box-shadow 0.3s',
+      }}>
+        {icon === 'mail' ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a2608" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a2608" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.4a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.58 16l.34.9z"/></svg>
+        )}
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: 'block', fontFamily: "'Lora', serif", fontSize: '0.6rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#d9b56a', marginBottom: 4 }}>{label}</span>
+        <span style={{ display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.02rem', fontWeight: 600, color: hov ? '#fbf3df' : '#f5f0e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+      </span>
+    </a>
+  )
+}
+
+// ─── Shelf card (immersive All Works): dark glass with a real 3D book ─────────
+// The book itself is rendered by the 3D scene into the [data-shelf-id] slot;
+// data-hover tells it to turn the book toward the reader.
+const ShelfCard = memo(function ShelfCard({ book, isEditMode, onEdit, onDelete, onView }) {
+  const [hovered, setHovered] = useState(false)
+  const accent = book.theme_color || '#c9a84c'
+  const light = isLight(accent)
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => !isEditMode && onView(book)}
+      style={{
+        // No background or blur over the stage: the 3D book renders *behind* this card
+        position: 'relative', borderRadius: 16, overflow: 'hidden',
+        border: `1px solid ${hovered ? rgba(accent, 0.5) : 'rgba(217,181,106,0.16)'}`,
+        boxShadow: hovered ? `0 24px 60px rgba(0,0,0,0.4), 0 0 40px ${rgba(accent, 0.16)}` : '0 14px 40px rgba(0,0,0,0.3)',
+        transform: hovered ? 'translateY(-4px)' : 'none',
+        transition: 'all 0.3s ease', cursor: isEditMode ? 'default' : 'pointer',
+      }}
+    >
+      {/* starlit stage for the 3D book */}
+      <div data-shelf-id={book.id} data-hover={hovered ? '1' : '0'} style={{
+        height: 250, position: 'relative',
+        background: `radial-gradient(ellipse at 50% 85%, ${rgba(accent, 0.22)} 0%, transparent 65%)`,
+      }}>
+        <span aria-hidden style={{ position: 'absolute', left: '20%', right: '20%', bottom: 14, height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.5), transparent)' }} />
+        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {book.new_release && (
+            <span style={{ background: accent, color: light ? '#1a1410' : '#f5f0e8', padding: '3px 9px', borderRadius: 999, fontSize: '0.6rem', fontFamily: "'Lora', serif", fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>New</span>
+          )}
+          {book.featured && !book.new_release && (
+            <span style={{ background: 'rgba(217,181,106,0.12)', color: '#e8cf96', padding: '3px 9px', borderRadius: 999, fontSize: '0.6rem', fontFamily: "'Lora', serif", border: '1px solid rgba(217,181,106,0.35)' }}>Featured</span>
+          )}
+        </div>
+        {isEditMode && (
+          <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, opacity: hovered ? 1 : 0, transition: 'opacity 0.2s' }}>
+            <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ background: 'rgba(14,18,34,0.9)', border: `1px solid ${rgba(accent, 0.4)}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#e8dcc0' }}>✎</button>
+            <button onClick={e => { e.stopPropagation(); onDelete(book) }} style={{ background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(220,90,70,0.45)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#f08a70' }}>✕</button>
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        padding: '18px 20px 20px', borderTop: '1px solid rgba(217,181,106,0.12)',
+        background: 'linear-gradient(170deg, rgba(20,26,48,0.72) 0%, rgba(8,10,20,0.86) 100%)',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      }}>
+        <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.64rem', color: '#d9b56a', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
+          {book.book_type}{book.genre ? ` · ${book.genre}` : ''}
+        </div>
+        <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.08rem', color: '#f5f0e8', margin: '0 0 6px', lineHeight: 1.3, fontWeight: 700 }}>{book.title}</h3>
+        {book.subtitle && <div style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: 'rgba(245,240,232,0.55)', marginBottom: 8 }}>{book.subtitle}</div>}
+        {book.description && (
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.8rem', color: 'rgba(245,240,232,0.62)', lineHeight: 1.6, margin: '0 0 14px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {stripToPlain(book.description)}
+          </p>
+        )}
+        {!isEditMode && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {book.amazon_url && <BuyLink href={safeHref(book.amazon_url)} accent={accent}>Amazon</BuyLink>}
+            {book.goodreads_url && <BuyLink href={book.goodreads_url} accent={accent} secondary>Goodreads</BuyLink>}
+            {book.other_buy_url && <BuyLink href={book.other_buy_url} accent={accent} secondary>Read/Buy Direct</BuyLink>}
+            <BookShareBtn slug={book.slug} title={book.title} accent={accent} compact />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})
+
 function BuyLink({ href, children, secondary, accent }) {
   const [hovered, setHovered] = useState(false)
   const light = isLight(accent)
   return (
-    <a href={href} target="_blank" rel="noreferrer"
+    <a href={safeHref(href)} target="_blank" rel="noreferrer"
       onClick={e => e.stopPropagation()}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -345,12 +428,12 @@ function CheckIcon({ size = 16, color = '#c9a84c' }) {
 }
 
 // ─── Section headers ──────────────────────────────────────────────────────────
-function SectionHeader({ eyebrow, title, subtitle }) {
+function SectionHeader({ eyebrow, title, subtitle, dark = false }) {
   return (
     <div style={{ textAlign: 'center', marginBottom: 52 }}>
       <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.72rem', color: '#c9a84c', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12, fontStyle: 'italic' }}>{eyebrow}</div>
-      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 700, color: '#3d2e1a', margin: '0 0 14px', lineHeight: 1.2 }}>{title}</h2>
-      {subtitle && <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '0.95rem', color: '#9a8060', maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.7 }}>{subtitle}</p>}
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 700, color: dark ? '#f5f0e8' : '#3d2e1a', margin: '0 0 14px', lineHeight: 1.2 }}>{title}</h2>
+      {subtitle && <p style={{ fontFamily: "'Lora', Georgia, serif", fontStyle: 'italic', fontSize: '0.95rem', color: dark ? 'rgba(245,240,232,0.6)' : '#9a8060', maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.7 }}>{subtitle}</p>}
       <Divider />
     </div>
   )
@@ -404,13 +487,26 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
   const [filterGenre, setFilterGenre] = useState('')
   const [viewingBook, setViewingBook]   = useState(null)   // book detail navigation
   const [pendingSlug, setPendingSlug]   = useState(initialBookSlug)  // deep-link slug to resolve
+  const [missingSlug, setMissingSlug]   = useState(null)             // deep link to a book that doesn't exist
   const [showFeaturedModal, setShowFeaturedModal] = useState(false)
   const [showNewReleaseModal, setShowNewReleaseModal] = useState(false)
   const [announcements, setAnnouncements]         = useState([])
   const [viewingAnn, setViewingAnn]               = useState(null)
   const adminOffset = isAdmin ? 37 : 0
 
-  useEffect(() => { injectFonts() }, [])
+  // Immersive (three.js) mode and the DOM anchors the 3D scene follows
+  const [immersiveOk] = useState(canImmerse)
+  const [sceneFailed, setSceneFailed] = useState(false)
+  const [sceneReady, setSceneReady] = useState(false)
+  const onSceneReady = useCallback(() => setSceneReady(true), [])
+  const immersive = immersiveOk && !sceneFailed
+  const anchors = {
+    hero: useRef(null), heroBook: useRef(null),
+    featuredSlot: useRef(null), featuredIndex: useRef(0),
+    shelf: useRef(null), soon: useRef(null),
+  }
+
+  useEffect(() => { injectFonts(); injectGaramond() }, [])
 
   useEffect(() => {
     Promise.all([getBooks(), getProfile()])
@@ -421,13 +517,21 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
       // Resolve deep-link slug now that we have books
       if (pendingSlug) {
         const found = bks.find(x => x.slug === pendingSlug)
-        if (found) openBook(found)
+        if (found) openBook(found, { replace: true })
+        else setMissingSlug(pendingSlug)
         setPendingSlug(null)
       }
     })
+      .catch(() => { if (pendingSlug) { setMissingSlug(pendingSlug); setPendingSlug(null) } })
     getAnnouncements().then(a => setAnnouncements(a || [])).catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Browser back/forward: the slug in the URL decides which book (if any) is open
+  useEffect(() => {
+    if (!initialBookSlug) { setViewingBook(null); return }
+    setViewingBook(v => v?.slug === initialBookSlug ? v : (books.find(b => b.slug === initialBookSlug) || v))
+  }, [initialBookSlug, books])
 
   const reload = () => getBooks().then(setBooks)
   const handleSave = () => reload()
@@ -475,9 +579,9 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
   const authorDisplayName = profile?.name?.trim() === 'Vishnu' ? 'Vishnu Vyas' : (profile?.name || 'Vishnu Vyas')
 
   // Push URL when opening a book, pop it when going back
-  const openBook = (book) => {
+  const openBook = (book, { replace = false } = {}) => {
     setViewingBook(book)
-    if (onNavigate) onNavigate(`/book/${book.slug}`)
+    if (onNavigate) onNavigate(`/book/${book.slug}`, { replace })
   }
   const closeBook = () => {
     setViewingBook(null)
@@ -492,6 +596,12 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
         onBack={closeBook}
       />
     )
+  }
+
+  // Shared /book/… links: a page-turning loader until the book resolves, a torn page if it doesn't
+  if (pendingSlug) return <BookLoading />
+  if (missingSlug) {
+    return <BookNotFound onBack={() => { setMissingSlug(null); if (onNavigate) onNavigate('/author') }} />
   }
 
   if (viewingAnn) {
@@ -513,7 +623,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
   const innerMax = { maxWidth: 1080, margin: '0 auto' }
 
   return (
-    <div style={{ fontFamily: "'Lora', Georgia, serif", background: '#f5f0e8', minHeight: '100vh', color: '#3d2e1a' }}>
+    <div style={{ fontFamily: "'Lora', Georgia, serif", background: immersive ? '#04060d' : '#f5f0e8', minHeight: '100vh', color: '#3d2e1a' }}>
       <AuthorAdminBanner />
       <AuthorNavbar
         adminOffset={adminOffset}
@@ -522,10 +632,23 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
         authorName={authorDisplayName}
         latestAnnouncement={announcements[0] || null}
         onAnnouncementClick={setViewingAnn}
+        night={immersive}
       />
 
+      {immersive && !loading && (
+        <SceneBoundary onFail={() => setSceneFailed(true)}>
+          <Suspense fallback={null}>
+            <AuthorExperience books={books} newRelease={newRelease} featured={featured}
+              anchors={anchors} isMobile={isMobile} onReady={onSceneReady} />
+          </Suspense>
+        </SceneBoundary>
+      )}
+
+      {/* Everything readable sits above the fixed 3D canvas */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section id="author-hero" style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', background: heroBg }}>
+      <section id="author-hero" ref={anchors.hero} style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', background: immersive ? 'transparent' : heroBg }}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23f5f0e8'/%3E%3Crect width='1' height='1' fill='%23c9a84c'/%3E%3C/svg%3E")` }} />
         <div style={{ position: 'absolute', top: '40%', left: '30%', transform: 'translate(-50%,-50%)', width: 600, height: 600, background: `radial-gradient(circle, ${rgba(heroAccent, 0.18)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: '-5%', right: '8%', width: 400, height: 400, background: `radial-gradient(circle, ${rgba(heroAccent, 0.1)} 0%, transparent 65%)`, pointerEvents: 'none' }} />
@@ -595,14 +718,14 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
                     Discover the Book
                   </button>
                   {newRelease.amazon_url && (
-                    <a href={newRelease.amazon_url} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.88rem', padding: '13px 24px', borderRadius: 8, border: `1px solid ${rgba(heroAccent, 0.4)}`, color: 'rgba(245,240,232,0.75)', textDecoration: 'none', transition: 'all 0.2s', background: 'transparent' }}
+                    <a href={safeHref(newRelease.amazon_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.88rem', padding: '13px 24px', borderRadius: 8, border: `1px solid ${rgba(heroAccent, 0.4)}`, color: 'rgba(245,240,232,0.75)', textDecoration: 'none', transition: 'all 0.2s', background: 'transparent' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = rgba(heroAccent, 0.8); e.currentTarget.style.color = '#f5f0e8' }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = rgba(heroAccent, 0.4); e.currentTarget.style.color = 'rgba(245,240,232,0.75)' }}>
                       Get Your Copy ↗
                     </a>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                <div style={{ display: immersive ? 'none' : 'flex', gap: 20, flexWrap: 'wrap' }}>
                   {newRelease.book_type && <StatChip label="format" value={newRelease.book_type} accent={heroAccent} />}
                   {newRelease.genre && <StatChip label="genre" value={newRelease.genre} accent={heroAccent} />}
                   {newRelease.pages && <StatChip label="pages" value={newRelease.pages} accent={heroAccent} />}
@@ -613,9 +736,19 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
                 )}
               </div>
 
-              {/* Cover — clickable */}
+              {/* Cover — clickable. In immersive mode an empty slot: the 3D book (and its orbiting
+                  companions) render there; the flat cover shows until the scene is ready. */}
               <div onClick={() => openBook(newRelease)} style={{ display: 'flex', justifyContent: 'center', animation: 'fadeInUp 0.8s ease 0.15s both', cursor: 'pointer' }}>
-                {newRelease.cover_url ? (
+                {immersive ? (
+                  <div ref={anchors.heroBook} style={{ width: isMobile ? 220 : 300, height: isMobile ? 320 : 430, position: 'relative' }}>
+                    {newRelease.cover_url && (
+                      <img src={imgUrl(newRelease.cover_url)} alt={newRelease.title} style={{
+                        position: 'absolute', inset: '6% 12%', width: '76%', height: '88%', objectFit: 'cover', borderRadius: 4,
+                        opacity: sceneReady ? 0 : 1, transition: 'opacity 0.9s ease',
+                      }} />
+                    )}
+                  </div>
+                ) : newRelease.cover_url ? (
                   <div style={{ position: 'relative', filter: `drop-shadow(0 24px 60px rgba(0,0,0,0.5)) drop-shadow(0 4px 16px ${rgba(heroAccent, 0.3)})` }}>
                     <img src={imgUrl(newRelease.cover_url)} alt={newRelease.title}
                       style={{ maxHeight: 440, maxWidth: 320, borderRadius: 6, display: 'block', transform: 'perspective(700px) rotateY(-3deg)', transition: 'transform 0.4s ease' }}
@@ -629,7 +762,9 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', animation: 'fadeInUp 0.8s ease' }}>
+            <div style={{ textAlign: 'center', animation: 'fadeInUp 0.8s ease', position: 'relative' }}>
+              {/* No new release: the books orbit the author's name */}
+              {immersive && <div ref={anchors.heroBook} aria-hidden style={{ position: 'absolute', left: '50%', top: '50%', width: 380, height: 380, transform: 'translate(-50%,-50%)', pointerEvents: 'none' }} />}
               <div style={{ fontFamily: "'Lora', serif", fontSize: '0.8rem', color: '#c9a84c', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>Author</div>
               <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2.8rem, 7vw, 5rem)', color: '#f5f0e8', fontWeight: 900, margin: '0 0 20px', lineHeight: 1.05, textShadow: '0 4px 40px rgba(201,168,76,0.2)' }}>
                 {authorDisplayName}
@@ -677,29 +812,32 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
         books={featured}
         isEditMode={isEditMode}
         onManage={() => setShowFeaturedModal(true)}
-        onView={setViewingBook}
+        onView={openBook}
+        immersive={immersive}
+        slotRef={anchors.featuredSlot}
+        indexRef={anchors.featuredIndex}
       />
 
       {/* ── ALL BOOKS ─────────────────────────────────────────────────────── */}
-      <section id="author-all-books" style={{ ...sectionPadding, background: '#f5f0e8' }}>
+      <section id="author-all-books" style={{ ...sectionPadding, background: immersive ? 'transparent' : '#f5f0e8' }}>
         <div style={innerMax}>
-          <SectionHeader eyebrow="The Complete Catalogue" title="All Works" />
+          <SectionHeader eyebrow="The Complete Catalogue" title="All Works" dark={immersive} />
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 36, alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: '1 1 260px' }}>
               <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b5c45" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search titles, descriptions…"
-                style={{ width: '100%', padding: '10px 14px 10px 38px', background: '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.85rem', color: '#3d2e1a', outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '10px 14px 10px 38px', background: immersive ? 'rgba(14,18,34,0.7)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.85rem', color: immersive ? '#f5f0e8' : '#3d2e1a', outline: 'none', boxSizing: 'border-box', backdropFilter: immersive ? 'blur(6px)' : undefined }}
                 onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.6)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(201,168,76,0.25)'} />
             </div>
             {allTypes.length > 1 && (
-              <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '10px 14px', background: '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: '#6b5c45', cursor: 'pointer', outline: 'none' }}>
+              <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '10px 14px', background: immersive ? 'rgba(14,18,34,0.85)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: immersive ? '#e8dcc0' : '#6b5c45', cursor: 'pointer', outline: 'none' }}>
                 <option value="">All types</option>
                 {allTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
             {allGenres.length > 1 && (
-              <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} style={{ padding: '10px 14px', background: '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: '#6b5c45', cursor: 'pointer', outline: 'none' }}>
+              <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} style={{ padding: '10px 14px', background: immersive ? 'rgba(14,18,34,0.85)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: immersive ? '#e8dcc0' : '#6b5c45', cursor: 'pointer', outline: 'none' }}>
                 <option value="">All genres</option>
                 {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -719,8 +857,12 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
             )}
           </div>
           {filtered.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
-              {filtered.map(book => (
+            <div ref={anchors.shelf} style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${immersive ? 260 : 240}px, 1fr))`, gap: immersive ? 26 : 20 }}>
+              {filtered.map(book => immersive ? (
+                <ShelfCard key={book.id} book={book} isEditMode={isEditMode}
+                  onEdit={b => { setEditingBook(b); setShowBookModal(true) }}
+                  onDelete={handleDelete} onView={openBook} />
+              ) : (
                 <BookCard key={book.id} book={book} isEditMode={isEditMode}
                   onEdit={b => { setEditingBook(b); setShowBookModal(true) }}
                   onDelete={handleDelete} onView={openBook} />
@@ -729,7 +871,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
           ) : (
             <div style={{ textAlign: 'center', padding: '48px 0' }}>
               <div style={{ fontSize: '2rem', marginBottom: 12, opacity: 0.4 }}>📚</div>
-              <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: '#9a8060' }}>
+              <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: immersive ? 'rgba(245,240,232,0.5)' : '#9a8060' }}>
                 {books.length === 0 ? 'No books added yet.' : 'No results found.'}
               </div>
               {isEditMode && books.length === 0 && (
@@ -741,10 +883,11 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
       </section>
 
       {/* ── COMING SOON ───────────────────────────────────────────────────── */}
-      <ComingSoonSection books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} onView={openBook} />
+      <ComingSoonSection immersive={immersive} soonRef={anchors.soon} books={comingSoon} isEditMode={isEditMode} onAdd={() => { setEditingBook({ coming_soon: true }); setShowBookModal(true) }} onEdit={b => { setEditingBook(b); setShowBookModal(true) }} onDelete={handleDelete} onView={openBook} />
 
       {/* ── ANNOUNCEMENTS ─────────────────────────────────────────────────── */}
       <AnnouncementsSection
+        immersive={immersive}
         announcements={announcements}
         isEditMode={isEditMode}
         onView={setViewingAnn}
@@ -760,12 +903,18 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
       />
 
       {/* ── ABOUT / BIO ───────────────────────────────────────────────────── */}
-      <AuthorBioSection profile={profile} isEditMode={isEditMode} onUpdate={async (patch) => { await updateProfile(patch); setProfile(p => ({ ...p, ...patch })) }} />
+      <AuthorBioSection immersive={immersive} profile={profile} isEditMode={isEditMode} onUpdate={async (patch) => { await updateProfile(patch); setProfile(p => ({ ...p, ...patch })) }} />
 
       {/* ── CONTACT ───────────────────────────────────────────────────────── */}
-      <section id="author-contact" style={{ ...sectionPadding, background: '#fdf8f0' }}>
+      <section id="author-contact" style={{ ...sectionPadding, background: immersive ? 'transparent' : '#fdf8f0' }}>
         <div style={{ ...innerMax, maxWidth: 640, textAlign: 'center' }}>
-          <SectionHeader eyebrow="Get in Touch" title="Letters Welcome" subtitle="For rights enquiries, readings, collaborations, or just to say hello — the door is always open." />
+          <SectionHeader dark={immersive} eyebrow="Get in Touch" title="Letters Welcome" subtitle="For rights enquiries, readings, collaborations, or just to say hello — the door is always open." />
+          {immersive ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, marginTop: 8, textAlign: 'left' }}>
+              {profile?.email && <CallingCard href={`mailto:${profile.email}`} label="Write to me" value={profile.email} icon="mail" />}
+              {profile?.phone && <CallingCard href={`tel:${profile.phone}`} label="Call" value={profile.phone} icon="phone" />}
+            </div>
+          ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 8 }}>
             {profile?.email && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -788,11 +937,12 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
               </div>
             )}
           </div>
+          )}
         </div>
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: isMobile ? '20px' : '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: '#1a1410' }}>
+      <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: isMobile ? '20px' : '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: immersive ? 'rgba(4,6,13,0.85)' : '#1a1410' }}>
         <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', fontStyle: 'italic' }}>
           © {new Date().getFullYear()} {authorDisplayName} — All rights reserved
         </div>
@@ -810,6 +960,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
           )}
         </div>
       </footer>
+      </div>
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showBookModal && (
@@ -880,8 +1031,12 @@ const darkLinkStyle = { fontFamily: "'Lora', Georgia, serif", fontSize: '0.85rem
 
 // ── FeaturedSlideshow ─────────────────────────────────────────────────────────
 // Light parchment background, horizontal catalogue layout — distinct from the dark hero
-function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
+function FeaturedSlideshow({ books, isEditMode, onManage, onView, immersive = false, slotRef, indexRef }) {
   const isMobile = useMediaQuery(900)
+  // Night palette over the 3D sky; parchment otherwise
+  const P = immersive
+    ? { title: '#f5f0e8', sub: 'rgba(245,240,232,0.6)', body: 'rgba(245,240,232,0.72)', meta: '#d9b56a', chipText: 'rgba(245,240,232,0.7)', btnBg: 'rgba(14,18,34,0.85)', faint: 'rgba(245,240,232,0.2)' }
+    : { title: '#3d2e1a', sub: '#9a8060', body: '#6b5c45', meta: '#b09070', chipText: '#9a8060', btnBg: 'rgba(245,240,232,0.9)', faint: 'rgba(61,46,26,0.2)' }
   const [idx, setIdx]           = useState(0)
   const [phase, setPhase]       = useState('in')   // 'in' | 'out'
   const [descOpen, setDescOpen] = useState(false)
@@ -918,18 +1073,21 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [books.length])
 
+  // The 3D turntable reads the current book from here
+  useEffect(() => { if (indexRef) indexRef.current = idx }, [idx, indexRef])
+
   // Empty state
   if (books.length === 0) {
     return (
       <section id="author-featured" style={{
-        background: 'linear-gradient(160deg, #fdf8f0 0%, #f5ede0 100%)',
+        background: immersive ? 'transparent' : 'linear-gradient(160deg, #fdf8f0 0%, #f5ede0 100%)',
         padding: isMobile ? '64px 20px' : '80px 48px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 16, borderTop: '1px solid rgba(201,168,76,0.15)',
         borderBottom: '1px solid rgba(201,168,76,0.15)',
       }}>
         <div style={{ fontFamily: "'Lora', serif", fontSize: '0.68rem', color: 'rgba(201,168,76,0.5)', letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>Featured Titles</div>
-        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: 'rgba(61,46,26,0.2)', fontWeight: 700 }}>No featured books yet</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.4rem', color: P.faint, fontWeight: 700 }}>No featured books yet</div>
         {isEditMode && (
           <button onClick={onManage} style={{ marginTop: 8, padding: '10px 24px', borderRadius: 8, background: '#c9a84c', border: 'none', fontFamily: "'Playfair Display', serif", fontSize: '0.85rem', fontWeight: 600, color: '#1a1410', cursor: 'pointer' }}>⭐ Choose Featured Books</button>
         )}
@@ -947,7 +1105,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
   return (
     <section id="author-featured" style={{
       position: 'relative',
-      background: 'linear-gradient(180deg, #fdf8f0 0%, #f5ede0 100%)',
+      background: immersive ? 'transparent' : 'linear-gradient(180deg, #fdf8f0 0%, #f5ede0 100%)',
       padding: '0',
       overflow: 'hidden',
       borderTop: '1px solid rgba(201,168,76,0.18)',
@@ -965,7 +1123,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
 
       {/* Section title */}
       <div style={{ textAlign: 'center', padding: isMobile ? '20px 20px 0' : '20px 48px 0' }}>
-        <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 900, color: '#3d2e1a', margin: 0, letterSpacing: '-0.01em' }}>Featured Titles</h2>
+        <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 900, color: P.title, margin: 0, letterSpacing: '-0.01em' }}>Featured Titles</h2>
         <div style={{ width: 40, height: 2, background: '#c9a84c', margin: '12px auto 0', borderRadius: 1 }} />
       </div>
 
@@ -975,9 +1133,9 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
           <button onClick={onManage} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 14px', borderRadius: 7,
-            background: 'rgba(245,240,232,0.9)', backdropFilter: 'blur(6px)',
+            background: P.btnBg, backdropFilter: 'blur(6px)',
             border: '1px solid rgba(201,168,76,0.3)',
-            fontFamily: "'Lora', serif", fontSize: '0.7rem', color: '#9a8060',
+            fontFamily: "'Lora', serif", fontSize: '0.7rem', color: P.chipText,
             cursor: 'pointer', transition: 'all 0.2s',
           }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -997,8 +1155,11 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
         transform: phase === 'out' ? 'translateY(10px)' : 'translateY(0)',
         transition: 'opacity 0.35s ease, transform 0.35s ease',
       }}>
-        {/* Cover column */}
+        {/* Cover column (immersive: the slot the 3D turntable renders into) */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+          {immersive ? (
+            <div ref={slotRef} onClick={() => onView(book)} style={{ width: isMobile ? 220 : 280, height: isMobile ? 300 : 360, cursor: 'pointer' }} />
+          ) : (
           <div
             onClick={() => onView(book)}
             style={{ cursor: 'pointer', position: 'relative' }}
@@ -1027,6 +1188,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
               </div>
             )}
           </div>
+          )}
 
           {/* Dot nav */}
           {books.length > 1 && (
@@ -1053,7 +1215,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
               color: rgba(accent, 0.2), letterSpacing: '-0.03em', userSelect: 'none',
             }}>{String(idx + 1).padStart(2, '0')}</span>
             <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, ${rgba(accent, 0.4)}, transparent)` }} />
-            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: '#b09070', letterSpacing: '0.12em', textTransform: 'uppercase', fontStyle: 'italic' }}>
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: P.meta, letterSpacing: '0.12em', textTransform: 'uppercase', fontStyle: 'italic' }}>
               {book.book_type}{book.genre ? ` · ${book.genre}` : ''}
             </span>
           </div>
@@ -1061,13 +1223,13 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
           {/* Title */}
           <h3
             onClick={() => onView(book)}
-            onMouseEnter={e => e.currentTarget.style.color = darken(accent, 0.3)}
-            onMouseLeave={e => e.currentTarget.style.color = '#3d2e1a'}
-            style={{ cursor: 'pointer', fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)', fontWeight: 900, color: '#3d2e1a', lineHeight: 1.1, margin: '0 0 10px', transition: 'color 0.2s' }}
+            onMouseEnter={e => e.currentTarget.style.color = immersive ? accent : darken(accent, 0.3)}
+            onMouseLeave={e => e.currentTarget.style.color = P.title}
+            style={{ cursor: 'pointer', fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)', fontWeight: 900, color: P.title, lineHeight: 1.1, margin: '0 0 10px', transition: 'color 0.2s' }}
           >{book.title}</h3>
 
           {book.subtitle && (
-            <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '1rem', color: '#9a8060', marginBottom: 18, lineHeight: 1.5 }}>{book.subtitle}</div>
+            <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', fontSize: '1rem', color: P.sub, marginBottom: 18, lineHeight: 1.5 }}>{book.subtitle}</div>
           )}
 
           {/* Ornamental rule */}
@@ -1080,7 +1242,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
           {/* Description */}
           {desc && (
             <div style={{ marginBottom: 28 }}>
-              <p style={{ fontFamily: "'Lora', serif", fontSize: '0.95rem', color: '#6b5c45', lineHeight: 1.9, margin: 0, fontStyle: 'italic' }}>
+              <p style={{ fontFamily: "'Lora', serif", fontSize: '0.95rem', color: P.body, lineHeight: 1.9, margin: 0, fontStyle: 'italic' }}>
                 {descOpen ? plainDesc : shortDesc}
               </p>
               {plainDesc.split(' ').length > 36 && (
@@ -1099,7 +1261,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
               book.publisher && { label: 'Publisher', val: book.publisher },
               book.self_published && { label: 'Publisher', val: 'Self-Published' },
             ].filter(Boolean).map((m, i) => (
-              <div key={i} style={{ padding: '5px 12px', borderRadius: 20, background: rgba(accent, 0.08), border: `1px solid ${rgba(accent, 0.2)}`, fontFamily: "'Lora', serif", fontSize: '0.72rem', color: '#9a8060' }}>
+              <div key={i} style={{ padding: '5px 12px', borderRadius: 20, background: rgba(accent, 0.08), border: `1px solid ${rgba(accent, 0.2)}`, fontFamily: "'Lora', serif", fontSize: '0.72rem', color: P.chipText }}>
                 <span style={{ color: accent, fontStyle: 'italic', marginRight: 4 }}>{m.label}:</span>{m.val}
               </div>
             ))}
@@ -1115,10 +1277,10 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
               boxShadow: `0 4px 16px ${rgba(accent, 0.35)}`,
             }}>Read More</button>
             {book.amazon_url && (
-              <a href={book.amazon_url} target="_blank" rel="noreferrer" style={{
+              <a href={safeHref(book.amazon_url)} target="_blank" rel="noreferrer" style={{
                 padding: '11px 20px', borderRadius: 8,
                 border: `1px solid ${rgba(accent, 0.4)}`,
-                color: '#9a8060', textDecoration: 'none',
+                color: P.chipText, textDecoration: 'none',
                 fontFamily: "'Lora', serif", fontSize: '0.82rem',
                 transition: 'all 0.2s',
               }}>Get Copy ↗</a>
@@ -1130,10 +1292,10 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
       {/* Prev/Next arrows */}
       {books.length > 1 && (
         <>
-          <button onClick={() => goTo((idx - 1 + books.length) % books.length)} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(245,240,232,0.9)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', color: '#9a8060', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+          <button onClick={() => goTo((idx - 1 + books.length) % books.length)} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: P.btnBg, border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', color: P.chipText, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
-          <button onClick={() => goTo((idx + 1) % books.length)} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(245,240,232,0.9)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', color: '#9a8060', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+          <button onClick={() => goTo((idx + 1) % books.length)} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: P.btnBg, border: '1px solid rgba(201,168,76,0.2)', borderRadius: '50%', width: 38, height: 38, cursor: 'pointer', color: P.chipText, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </>
@@ -1150,7 +1312,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView }) {
 }
 
 // ── AuthorBioSection ──────────────────────────────────────────────────────────
-function AuthorBioSection({ profile, isEditMode, onUpdate }) {
+function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) {
   const isMobile = useMediaQuery(900)
   const [editing, setEditing]     = useState(false)
   const [bioVal, setBioVal]       = useState('')
@@ -1186,7 +1348,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
   return (
     <section id="author-about" style={{
       position: 'relative', overflow: 'hidden',
-      background: 'linear-gradient(160deg, #1e1508 0%, #2c1f0e 50%, #1a1006 100%)',
+      background: immersive ? 'transparent' : 'linear-gradient(160deg, #1e1508 0%, #2c1f0e 50%, #1a1006 100%)',
       padding: isMobile ? '72px 20px' : '100px 48px',
     }}>
       {/* Decorative background pattern */}
@@ -1202,7 +1364,8 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
             <span style={{ fontFamily: "'Lora', serif", fontSize: '0.65rem', color: 'rgba(201,168,76,0.6)', letterSpacing: '0.22em', textTransform: 'uppercase', fontStyle: 'italic' }}>The Author</span>
             <div style={{ flex: 1, maxWidth: 100, height: 1, background: 'linear-gradient(to left, transparent, rgba(201,168,76,0.4))' }} />
           </div>
-          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900, color: '#f5f0e8', margin: 0, textShadow: '0 2px 30px rgba(201,168,76,0.15)' }}>{name}</h2>
+          <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900, color: '#f5f0e8', margin: 0, textShadow: '0 2px 30px rgba(201,168,76,0.15)',
+            ...(immersive ? { backgroundImage: 'linear-gradient(180deg, #fcf5e4 0%, #f1dfb6 55%, #ddbb78 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', textShadow: 'none' } : {}) }}>{name}</h2>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
             <div style={{ width: 20, height: 1, background: 'rgba(201,168,76,0.35)' }} />
             <div style={{ width: 5, height: 5, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.5)' }} />
@@ -1218,17 +1381,23 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
           {/* Photo column */}
           {(avatar || isEditMode) && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              {/* Photo frame */}
+              {/* Photo frame (immersive: arched gold portrait window) */}
               <div style={{ position: 'relative' }}>
+                {immersive && <span aria-hidden style={{ position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)', color: '#ecd08f', fontSize: '1.1rem', textShadow: '0 0 14px rgba(236,208,143,0.9)', zIndex: 2 }}>✦</span>}
                 {/* Outer ornamental frame */}
-                <div style={{
+                <div style={immersive ? {
+                  position: 'absolute', inset: -12, borderRadius: '160px 160px 18px 18px',
+                  border: '1px solid rgba(217,181,106,0.35)',
+                  background: 'radial-gradient(ellipse at 50% 20%, rgba(217,181,106,0.12) 0%, transparent 70%)',
+                  boxShadow: '0 0 70px rgba(217,181,106,0.14)',
+                } : {
                   position: 'absolute', inset: -12,
                   border: '1px solid rgba(201,168,76,0.2)',
                   borderRadius: 16,
                   background: 'rgba(201,168,76,0.04)',
                 }} />
                 {/* Corner dots */}
-                {[[-8,-8],[-8,'auto'],['auto',-8],['auto','auto']].map(([t,l,b,r], i) => {
+                {!immersive && [[-8,-8],[-8,'auto'],['auto',-8],['auto','auto']].map(([t,l,b,r], i) => {
                   const pos = [
                     { top: -16, left: -16 }, { top: -16, right: -16 },
                     { bottom: -16, left: -16 }, { bottom: -16, right: -16 },
@@ -1243,11 +1412,12 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
                   onDrop={isEditMode ? (e => { e.preventDefault(); setPhotoDrag(false); handlePhoto(e.dataTransfer.files?.[0]) }) : undefined}
                   onClick={isEditMode && !avatar ? (() => document.getElementById('author-photo-input')?.click()) : undefined}
                   style={{
-                    width: isMobile ? 220 : 240, height: isMobile ? 280 : 300,
-                    borderRadius: 12,
+                    width: isMobile ? 220 : 240, height: isMobile ? 290 : 320,
+                    borderRadius: immersive ? '150px 150px 12px 12px' : 12,
                     overflow: 'hidden',
                     position: 'relative',
-                    border: `2px solid rgba(201,168,76,${photoDrag ? '0.7' : '0.2'})`,
+                    border: immersive ? `1.5px solid rgba(217,181,106,${photoDrag ? '1' : '0.7'})` : `2px solid rgba(201,168,76,${photoDrag ? '0.7' : '0.2'})`,
+                    boxShadow: immersive ? '0 30px 70px rgba(0,0,0,0.55), inset 0 0 0 4px rgba(4,6,13,0.55)' : 'none',
                     cursor: isEditMode && !avatar ? 'pointer' : 'default',
                     transition: 'border-color 0.2s',
                     background: '#1a1006',
@@ -1260,7 +1430,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
                       {/* Subtle vignette overlay */}
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(26,16,6,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', inset: 0, background: immersive ? 'linear-gradient(to top, rgba(4,6,13,0.55) 0%, transparent 45%), radial-gradient(ellipse at 50% 0%, rgba(236,208,143,0.12) 0%, transparent 60%)' : 'linear-gradient(to top, rgba(26,16,6,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
                     </>
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -1293,16 +1463,18 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
               </div>
 
               {/* Social links */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
+              <div style={immersive
+                ? { display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', maxWidth: 260, marginTop: 8 }
+                : { display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
                 {profile?.goodreads_url && (
-                  <a href={profile.goodreads_url} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: '7px 14px', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 6, transition: 'all 0.2s' }}
+                  <a href={safeHref(profile.goodreads_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: immersive ? '#ecd08f' : 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: immersive ? '7px 16px' : '7px 14px', border: `1px solid ${immersive ? 'rgba(217,181,106,0.4)' : 'rgba(201,168,76,0.12)'}`, borderRadius: immersive ? 999 : 6, transition: 'all 0.2s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'rgba(201,168,76,0.8)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = 'rgba(245,240,232,0.45)' }}>
                     Goodreads ↗
                   </a>
                 )}
                 {profile?.twitter_url && (
-                  <a href={profile.twitter_url} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: '7px 14px', border: '1px solid rgba(201,168,76,0.12)', borderRadius: 6, transition: 'all 0.2s' }}
+                  <a href={safeHref(profile.twitter_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: immersive ? '#ecd08f' : 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: immersive ? '7px 16px' : '7px 14px', border: `1px solid ${immersive ? 'rgba(217,181,106,0.4)' : 'rgba(201,168,76,0.12)'}`, borderRadius: immersive ? 999 : 6, transition: 'all 0.2s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'rgba(201,168,76,0.8)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = 'rgba(245,240,232,0.45)' }}>
                     Twitter / X ↗
@@ -1314,20 +1486,32 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
 
           {/* Bio column */}
           <div>
-            {/* Opening quote mark */}
-            <div style={{ fontFamily: 'Georgia, serif', fontSize: '5rem', color: 'rgba(201,168,76,0.15)', lineHeight: 0.8, marginBottom: 16, marginLeft: -8, userSelect: 'none' }}>"</div>
+            {/* Opening quote mark (classic page only) */}
+            {!immersive && <div style={{ fontFamily: 'Georgia, serif', fontSize: '5rem', color: 'rgba(201,168,76,0.15)', lineHeight: 0.8, marginBottom: 16, marginLeft: -8, userSelect: 'none' }}>"</div>}
 
             {!editing ? (
               <>
-                <p style={{
+                <p className={immersive && /^["“']?[A-Za-z]/.test(bio.trim()) ? 'bio-night' : undefined} style={immersive ? {
+                  fontFamily: "'EB Garamond', Garamond, Georgia, serif",
+                  fontSize: isMobile ? '1.15rem' : '1.28rem', color: 'rgba(245,236,214,0.86)',
+                  lineHeight: 1.85, margin: '8px 0 0', whiteSpace: 'pre-wrap',
+                } : {
                   fontFamily: "'Lora', Georgia, serif",
                   fontSize: '1.05rem', color: 'rgba(245,240,232,0.72)',
                   lineHeight: 2, margin: 0, fontStyle: 'italic',
                   whiteSpace: 'pre-wrap',
                 }}>{bio}</p>
 
+                {/* Signature (immersive) */}
+                {immersive && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 30 }}>
+                    <span style={{ width: 46, height: 1, background: 'linear-gradient(90deg, transparent, #d9b56a)' }} />
+                    <span style={{ fontFamily: "'EB Garamond', Garamond, Georgia, serif", fontStyle: 'italic', fontSize: '1.45rem', color: '#ecd08f', textShadow: '0 0 20px rgba(236,208,143,0.3)' }}>{name}</span>
+                  </div>
+                )}
+
                 {/* Closing rule */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 28 }}>
+                <div style={{ display: immersive ? 'none' : 'flex', alignItems: 'center', gap: 12, marginTop: 28 }}>
                   <div style={{ width: 32, height: 1, background: 'rgba(201,168,76,0.35)' }} />
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(201,168,76,0.4)' }} />
                   <div style={{ fontFamily: 'Georgia, serif', fontSize: '1.5rem', color: 'rgba(201,168,76,0.15)', lineHeight: 1 }}>"</div>
@@ -1381,20 +1565,24 @@ function AuthorBioSection({ profile, isEditMode, onUpdate }) {
           </div>
         </div>
       </div>
+      {immersive && <style>{`
+        .bio-night::first-letter { float: left; font-family: 'Playfair Display', Georgia, serif; font-weight: 700;
+          font-size: 4.2em; line-height: 0.8; padding: 0.06em 0.12em 0 0; color: #d9b56a; text-shadow: 0 0 22px rgba(217,181,106,0.5); }
+      `}</style>}
     </section>
   )
 }
 
 
 // ── ComingSoonSection ─────────────────────────────────────────────────────────
-function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView }) {
+function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView, immersive = false, soonRef }) {
   const isMobile = useMediaQuery(900)
   if (books.length === 0 && !isEditMode) return null
 
   return (
     <section id="author-coming-soon" style={{
       position: 'relative', overflow: 'hidden',
-      background: 'linear-gradient(180deg, #1a1006 0%, #22160a 50%, #1a1006 100%)',
+      background: immersive ? 'transparent' : 'linear-gradient(180deg, #1a1006 0%, #22160a 50%, #1a1006 100%)',
       padding: isMobile ? '72px 20px' : '100px 48px',
     }}>
       {/* Subtle dot-grid background */}
@@ -1429,8 +1617,10 @@ function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView 
             <div style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: 'rgba(245,240,232,0.25)', fontSize: '0.9rem' }}>No upcoming works listed yet.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {books.map((book, i) => (
+          <div ref={soonRef} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {books.map((book, i) => immersive ? (
+              <SoonCard key={book.id} book={book} index={i} isEditMode={isEditMode} onView={onView} onEdit={onEdit} onDelete={onDelete} />
+            ) : (
               <ComingSoonCard key={book.id} book={book} index={i} isEditMode={isEditMode} onView={onView} onEdit={onEdit} onDelete={onDelete} />
             ))}
           </div>
@@ -1573,14 +1763,111 @@ const ComingSoonCard = memo(function ComingSoonCard({ book, index, isEditMode, o
   )
 }) // end ComingSoonCard memo
 
+// ── SoonCard (immersive Coming Soon card) ──────────────────────────────────────
+// Transparent stage on the left where the 3D scene draws the book's cover in gold
+// line-art and paints it (as on the coming-soon page); night-glass text panel right.
+const SoonCard = memo(function SoonCard({ book, index, isEditMode, onView, onEdit, onDelete }) {
+  const isMobile = useMediaQuery(900)
+  const [hovered, setHovered] = useState(false)
+  const accent = book.theme_color || '#c9a84c'
+  const desc = stripToPlain(book.description || '')
+
+  return (
+    <div
+      onClick={() => onView(book)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: 'relative', display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
+        borderRadius: 18, overflow: 'hidden', cursor: 'pointer', marginBottom: 26,
+        border: `1px solid ${hovered ? rgba(accent, 0.5) : 'rgba(217,181,106,0.16)'}`,
+        boxShadow: hovered ? `0 26px 70px rgba(0,0,0,0.45), 0 0 50px ${rgba(accent, 0.14)}` : '0 14px 40px rgba(0,0,0,0.3)',
+        transform: hovered ? 'translateY(-4px)' : 'none',
+        transition: 'all 0.35s ease',
+      }}
+    >
+      {/* Stage for the 3D book (kept transparent: the canvas renders behind it) */}
+      <div data-soon-id={book.id} data-hover={hovered ? '1' : '0'} style={{
+        position: 'relative', height: isMobile ? 290 : 'auto', minHeight: isMobile ? 0 : 320,
+        background: `radial-gradient(ellipse at 50% 60%, ${rgba(accent, 0.2)} 0%, transparent 62%)`,
+      }}>
+        <span aria-hidden style={{ position: 'absolute', left: 16, bottom: 10, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '3.4rem', fontWeight: 900, lineHeight: 1, color: 'rgba(217,181,106,0.12)' }}>
+          {String(index + 1).padStart(2, '0')}
+        </span>
+      </div>
+
+      <div style={{
+        position: 'relative', padding: isMobile ? '24px 22px 22px' : '38px 40px 32px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 20,
+        background: 'linear-gradient(160deg, rgba(20,26,48,0.72) 0%, rgba(8,10,20,0.86) 100%)',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        borderLeft: isMobile ? 'none' : '1px solid rgba(217,181,106,0.12)',
+        borderTop: isMobile ? '1px solid rgba(217,181,106,0.12)' : 'none',
+      }}>
+        <span aria-hidden style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.55), transparent)' }} />
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'Lora', serif", fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#e8cf96' }}>
+              <span className="soon-pulse" style={{ width: 7, height: 7, borderRadius: '50%', background: '#d9b56a', boxShadow: '0 0 10px rgba(217,181,106,0.9)' }} />
+              Being written
+            </span>
+            {book.genre && <span style={{ fontFamily: "'Lora', serif", fontSize: '0.66rem', fontStyle: 'italic', color: 'rgba(245,240,232,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{book.genre}</span>}
+          </div>
+          <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.5rem, 2.6vw, 2.1rem)', fontWeight: 900, color: '#f5f0e8', margin: '0 0 12px', lineHeight: 1.12 }}>{book.title}</h3>
+          <div aria-hidden style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+            <span style={{ width: 30, height: 1, background: '#d9b56a' }} />
+            <span style={{ width: 6, height: 6, transform: 'rotate(45deg)', background: '#d9b56a' }} />
+            <span style={{ width: 14, height: 1, background: 'rgba(217,181,106,0.4)' }} />
+          </div>
+          {desc && (
+            <p style={{ fontFamily: "'EB Garamond', Garamond, Georgia, serif", fontStyle: 'italic', fontSize: '1.08rem', color: 'rgba(245,236,214,0.72)', lineHeight: 1.7, margin: 0, maxWidth: 560 }}>
+              {desc.slice(0, 220)}{desc.length > 220 ? '…' : ''}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          {book.estimated_release ? (
+            <span style={{
+              display: 'inline-flex', alignItems: 'baseline', gap: 10, padding: '7px 16px', borderRadius: 999,
+              border: '1px solid rgba(217,181,106,0.45)', background: 'linear-gradient(90deg, rgba(217,181,106,0.14), rgba(217,181,106,0.04))',
+            }}>
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.58rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(232,207,150,0.75)' }}>Expected</span>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '0.9rem', fontWeight: 700, color: '#f3dca4' }}>{book.estimated_release}</span>
+            </span>
+          ) : <span />}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: hovered ? '#e8cf96' : 'rgba(217,181,106,0.6)', transition: 'color 0.25s' }}>Follow its making →</span>
+            {isEditMode && (
+              <>
+                <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ padding: '5px 12px', borderRadius: 6, background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(217,181,106,0.3)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: '#e8dcc0', cursor: 'pointer' }}>✎ Edit</button>
+                <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${book.title}"?`)) onDelete(book) }} style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(220,90,70,0.45)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: '#f08a70', cursor: 'pointer' }}>✕</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      <style>{`
+        .soon-pulse { animation: soonPulse 2.2s ease-in-out infinite; }
+        @keyframes soonPulse { 0%,100% { opacity: 0.45; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.15); } }
+      `}</style>
+    </div>
+  )
+})
+
 // ── AnnouncementsSection ──────────────────────────────────────────────────────
 const AMBER        = '#e8a030'
 const AMBER_DIM    = 'rgba(232,160,48,0.10)'
 const AMBER_BORDER = 'rgba(232,160,48,0.28)'
 const ANN_BG       = '#1c1408'   // very dark warm ink for the section bg
+// Palettes: warm amber on the classic page, starlight gold over the 3D sky
+const ANN_WARM  = { main: AMBER, dim: AMBER_DIM, border: AMBER_BORDER, panel: '#221a0a', field: '#1a1208' }
+const ANN_NIGHT = { main: '#d9b56a', dim: 'rgba(217,181,106,0.10)', border: 'rgba(217,181,106,0.26)', panel: 'rgba(12,16,32,0.88)', field: 'rgba(6,9,20,0.9)' }
 
-function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDelete }) {
+function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDelete, immersive = false }) {
   const isMobile = useMediaQuery(900)
+  const A = immersive ? ANN_NIGHT : ANN_WARM
   const [creating, setCreating]   = useState(false)
   const [newTitle, setNewTitle]   = useState('')
   const [newBody,  setNewBody]    = useState('')
@@ -1606,9 +1893,9 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
 
   return (
     <section id="author-announcements" style={{
-      background: ANN_BG,
+      background: immersive ? 'transparent' : ANN_BG,
       padding: isMobile ? '64px 20px' : '80px 48px',
-      borderTop: `1px solid ${AMBER_BORDER}`,
+      borderTop: `1px solid ${A.border}`,
     }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
 
@@ -1616,14 +1903,14 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
         <div style={{ textAlign: 'center', marginBottom: 52 }}>
           {/* Alert icon + eyebrow */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${AMBER_BORDER})`, maxWidth: 120 }} />
-            <AnnAlertIcon size={22} color={AMBER} />
-            <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${AMBER_BORDER})`, maxWidth: 120 }} />
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${A.border})`, maxWidth: 120 }} />
+            {immersive ? <WaxSeal size={34} /> : <AnnAlertIcon size={22} color={A.main} />}
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${A.border})`, maxWidth: 120 }} />
           </div>
           <div style={{
             fontFamily: "'Lora', Georgia, serif", fontSize: '0.7rem',
             letterSpacing: '0.2em', textTransform: 'uppercase',
-            color: AMBER, opacity: 0.8, marginBottom: 10,
+            color: A.main, opacity: 0.8, marginBottom: 10,
           }}>
             From the Desk
           </div>
@@ -1649,16 +1936,16 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
             <button
               onClick={() => setCreating(true)}
               style={{
-                background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}`,
-                color: AMBER, padding: '10px 28px', borderRadius: 8,
+                background: A.dim, border: `1px solid ${A.border}`,
+                color: A.main, padding: '10px 28px', borderRadius: 8,
                 fontFamily: "'Lora', Georgia, serif", fontSize: '0.88rem',
                 cursor: 'pointer', transition: 'all 0.2s',
                 display: 'inline-flex', alignItems: 'center', gap: 8,
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,160,48,0.18)'; e.currentTarget.style.borderColor = 'rgba(232,160,48,0.5)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = AMBER_DIM; e.currentTarget.style.borderColor = AMBER_BORDER }}
+              onMouseEnter={e => { e.currentTarget.style.background = immersive ? 'rgba(217,181,106,0.18)' : 'rgba(232,160,48,0.18)'; e.currentTarget.style.borderColor = immersive ? 'rgba(217,181,106,0.5)' : 'rgba(232,160,48,0.5)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = A.dim; e.currentTarget.style.borderColor = A.border }}
             >
-              <AnnAlertIcon size={14} color={AMBER} />
+              {!immersive && <AnnAlertIcon size={14} color={A.main} />}
               + New Announcement
             </button>
           </div>
@@ -1667,23 +1954,23 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
         {/* Composer panel */}
         {isEditMode && creating && (
           <div style={{
-            background: '#221a0a',
-            border: `1px solid ${AMBER_BORDER}`,
+            background: A.panel,
+            border: `1px solid ${A.border}`,
             borderRadius: 12, padding: isMobile ? '20px' : '28px 32px',
             marginBottom: 40,
-            boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px ${AMBER_DIM}`,
+            boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px ${A.dim}`,
           }}>
             <div style={{
               fontFamily: "'Playfair Display', serif", fontSize: '1rem', fontWeight: 700,
               color: '#f5f0e8', marginBottom: 20,
               display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <AnnAlertIcon size={16} color={AMBER} /> New Announcement
+              <AnnAlertIcon size={16} color={A.main} /> New Announcement
             </div>
 
             {/* Title */}
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: AMBER, marginBottom: 7 }}>
+              <label style={{ display: 'block', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: A.main, marginBottom: 7 }}>
                 Title *
               </label>
               <input
@@ -1693,20 +1980,20 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
                 autoFocus
                 style={{
                   width: '100%', boxSizing: 'border-box',
-                  background: '#1a1208', border: `1px solid ${AMBER_BORDER}`,
+                  background: A.field, border: `1px solid ${A.border}`,
                   borderRadius: 7, padding: '10px 14px',
                   fontFamily: "'Playfair Display', Georgia, serif",
                   fontSize: '1.1rem', fontWeight: 700, color: '#f5f0e8',
                   outline: 'none',
                 }}
-                onFocus={e => e.target.style.borderColor = AMBER}
-                onBlur={e => e.target.style.borderColor = AMBER_BORDER}
+                onFocus={e => e.target.style.borderColor = A.main}
+                onBlur={e => e.target.style.borderColor = A.border}
               />
             </div>
 
             {/* Pinned */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 16 }}>
-              <input type="checkbox" checked={newPinned} onChange={e => setNewPinned(e.target.checked)} style={{ accentColor: AMBER }} />
+              <input type="checkbox" checked={newPinned} onChange={e => setNewPinned(e.target.checked)} style={{ accentColor: A.main }} />
               <span style={{ fontFamily: "'Lora', serif", fontSize: '0.82rem', color: 'rgba(245,240,232,0.55)' }}>
                 📌 Pin this (shows first, appears in bell dropdown)
               </span>
@@ -1714,10 +2001,10 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
 
             {/* Body */}
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: AMBER, marginBottom: 7 }}>
+              <label style={{ display: 'block', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: A.main, marginBottom: 7 }}>
                 Body <span style={{ opacity: 0.5, textTransform: 'none', letterSpacing: 0 }}>(optional — you can add this from the announcement page later)</span>
               </label>
-              <AnnComposerTextarea value={newBody} onChange={setNewBody} />
+              <AnnComposerTextarea value={newBody} onChange={setNewBody} palette={A} />
             </div>
 
             {err && (
@@ -1730,8 +2017,8 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
               <button
                 onClick={handleCreate} disabled={saving}
                 style={{
-                  background: AMBER_DIM, border: `1px solid ${AMBER_BORDER}`,
-                  color: AMBER, padding: '9px 24px', borderRadius: 7,
+                  background: A.dim, border: `1px solid ${A.border}`,
+                  color: A.main, padding: '9px 24px', borderRadius: 7,
                   fontFamily: "'Lora', serif", fontSize: '0.85rem', cursor: 'pointer',
                   opacity: saving ? 0.6 : 1, transition: 'all 0.15s',
                 }}
@@ -1767,11 +2054,12 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 20,
+          gridTemplateColumns: `repeat(auto-fill, minmax(${immersive ? 300 : 280}px, 1fr))`,
+          gap: immersive ? 24 : 20,
         }}>
           {announcements.map((ann, i) => (
             <AnnCard
+              immersive={immersive}
               key={ann.id}
               ann={ann}
               index={i}
@@ -1787,8 +2075,9 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
 }
 
 // ── Individual announcement card ──────────────────────────────────────────────
-const AnnCard = memo(function AnnCard({ ann, index, isEditMode, onView, onDelete }) {
+const AnnCard = memo(function AnnCard({ ann, index, isEditMode, onView, onDelete, immersive = false }) {
   const [hovered, setHovered] = useState(false)
+  if (immersive) return <LetterCard ann={ann} isEditMode={isEditMode} onView={onView} onDelete={onDelete} />
 
   const date = new Date(ann.created_at).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric',
@@ -1885,8 +2174,73 @@ const AnnCard = memo(function AnnCard({ ann, index, isEditMode, onView, onDelete
   )
 })
 
+// ── Letter card (immersive announcement card) ─────────────────────────────────
+// A note on night glass, closed with a gold wax seal.
+function LetterCard({ ann, isEditMode, onView, onDelete }) {
+  const [hovered, setHovered] = useState(false)
+  const date = new Date(ann.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const excerpt = stripToPlain(ann.body || '')
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onView(ann)}
+      style={{
+        position: 'relative', overflow: 'hidden', cursor: 'pointer',
+        padding: '28px 26px 24px', borderRadius: 14,
+        background: 'linear-gradient(165deg, rgba(22,28,52,0.74) 0%, rgba(8,10,20,0.88) 100%)',
+        border: `1px solid ${hovered ? 'rgba(217,181,106,0.5)' : 'rgba(217,181,106,0.18)'}`,
+        boxShadow: hovered ? '0 24px 60px rgba(0,0,0,0.5), 0 0 40px rgba(217,181,106,0.1)' : '0 12px 34px rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        transform: hovered ? 'translateY(-4px)' : 'none', transition: 'all 0.3s ease',
+      }}
+    >
+      {/* folded-letter corner + top hairline */}
+      <span aria-hidden style={{ position: 'absolute', top: 0, left: '12%', right: '12%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.55), transparent)' }} />
+      <div style={{ position: 'absolute', top: 18, right: 18, transform: hovered ? 'rotate(-12deg) scale(1.06)' : 'rotate(-6deg)', transition: 'transform 0.35s ease', filter: hovered ? 'drop-shadow(0 0 12px rgba(217,181,106,0.55))' : 'none' }}>
+        <WaxSeal size={42} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingRight: 56 }}>
+        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#d9b56a' }}>{date}</span>
+        {ann.pinned && <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', color: '#f3dca4', border: '1px solid rgba(217,181,106,0.4)', borderRadius: 999, padding: '2px 8px' }}>★ Pinned</span>}
+      </div>
+      <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.28rem', fontWeight: 700, color: '#f5f0e8', lineHeight: 1.3, margin: '0 0 12px', paddingRight: 40 }}>{ann.title}</h3>
+      {excerpt && (
+        <p style={{ fontFamily: "'EB Garamond', Garamond, Georgia, serif", fontStyle: 'italic', fontSize: '1.02rem', lineHeight: 1.6, color: 'rgba(245,236,214,0.66)', margin: '0 0 18px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {excerpt}
+        </p>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(217,181,106,0.14)', paddingTop: 14 }}>
+        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: hovered ? '#e8cf96' : 'rgba(217,181,106,0.65)', transition: 'color 0.2s' }}>Open the letter →</span>
+        {isEditMode && (
+          <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${ann.title}"?`)) onDelete(ann.id) }} style={{ background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(220,90,70,0.45)', color: '#f08a70', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: '0.68rem' }}>✕ Delete</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Gold wax seal with a star pressed into it
+function WaxSeal({ size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
+      <defs>
+        <radialGradient id="wax" cx="38%" cy="32%" r="70%">
+          <stop offset="0%" stopColor="#f6dc98" />
+          <stop offset="45%" stopColor="#c99a48" />
+          <stop offset="100%" stopColor="#7a5418" />
+        </radialGradient>
+      </defs>
+      <path d="M24 2 C30 3 33 1 37 5 C41 9 45 12 45 18 C47 24 44 28 45 33 C43 39 39 41 35 44 C30 47 26 45 21 46 C15 46 11 43 7 39 C3 35 3 31 2 25 C2 19 4 14 8 10 C12 5 17 2 24 2 Z" fill="url(#wax)" />
+      <circle cx="24" cy="24" r="14" fill="none" stroke="#6a4612" strokeOpacity="0.55" strokeWidth="1.2" />
+      <path d="M24 13 L26.6 21 L35 21 L28.2 26 L30.8 34 L24 29 L17.2 34 L19.8 26 L13 21 L21.4 21 Z" fill="#6a4612" fillOpacity="0.55" />
+    </svg>
+  )
+}
+
 // ── Simple amber-themed textarea for composer (no toolbar needed in quick create) ─
-function AnnComposerTextarea({ value, onChange }) {
+function AnnComposerTextarea({ value, onChange, palette = ANN_WARM }) {
   return (
     <textarea
       value={value}
@@ -1895,15 +2249,15 @@ function AnnComposerTextarea({ value, onChange }) {
       placeholder="Optional body text — you can write the full announcement from the announcement page after posting."
       style={{
         width: '100%', boxSizing: 'border-box',
-        background: '#1a1208', border: `1px solid ${AMBER_BORDER}`,
+        background: palette.field, border: `1px solid ${palette.border}`,
         borderRadius: 7, padding: '10px 14px',
         fontFamily: "'Lora', Georgia, serif",
         fontSize: '0.88rem', color: '#f5f0e8', lineHeight: 1.75,
         outline: 'none', resize: 'vertical',
         transition: 'border-color 0.2s',
       }}
-      onFocus={e => e.target.style.borderColor = AMBER}
-      onBlur={e => e.target.style.borderColor = AMBER_BORDER}
+      onFocus={e => e.target.style.borderColor = palette.main}
+      onBlur={e => e.target.style.borderColor = palette.border}
     />
   )
 }

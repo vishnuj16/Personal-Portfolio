@@ -1,10 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { updateAnnouncement, deleteAnnouncement } from '../api'
-import { renderRichText, RichTextEditor } from './RichText'
+import { renderRichText } from './RichText'
+import useMediaQuery from '../hooks/useMediaQuery'
+import { canImmerse, SceneBoundary } from '../three/gate'
+import { injectGaramond } from '../utils/fonts'
 
-// ── Colour palette (warm ink + alert amber) ───────────────────────────────────
-const C = {
+// three.js only downloads when the immersive page actually renders
+const LetterExperience = lazy(() => import('../three/LetterExperience'))
+
+// ── Colour palettes: warm ink + alert amber (classic), starlight gold (immersive) ─
+const WARM = {
   bg:          '#1a1208',
   bgMid:       '#221a0a',
   ink:         '#f5f0e8',
@@ -15,7 +21,22 @@ const C = {
   amberBorder: 'rgba(232,160,48,0.35)',
   red:         'rgba(220,60,60,0.85)',
   redDim:      'rgba(220,60,60,0.12)',
+  field:       '#221a0a',
 }
+const NIGHT = {
+  bg:          '#04060d',
+  bgMid:       'rgba(5,8,18,0.72)',
+  ink:         '#f5f0e8',
+  inkMuted:    'rgba(245,240,232,0.62)',
+  inkFaint:    'rgba(245,240,232,0.32)',
+  amber:       '#d9b56a',
+  amberDim:    'rgba(217,181,106,0.14)',
+  amberBorder: 'rgba(217,181,106,0.3)',
+  red:         'rgba(240,120,100,0.9)',
+  redDim:      'rgba(220,60,60,0.12)',
+  field:       'rgba(10,14,30,0.9)',
+}
+const GARAMOND = "'EB Garamond', Garamond, Georgia, serif"
 
 function fmt(dateStr) {
   if (!dateStr) return ''
@@ -32,9 +53,17 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
   const [pinned,   setPinned]   = useState(!!initial.pinned)
   const [saving,   setSaving]   = useState(false)
   const [err,      setErr]      = useState('')
+  const isMobile = useMediaQuery(900)
+
+  // Immersive: night sky + a 3D envelope that opens at the top of the letter
+  const [immersiveOk] = useState(canImmerse)
+  const [sceneFailed, setSceneFailed] = useState(false)
+  const immersive = immersiveOk && !sceneFailed
+  const C = immersive ? NIGHT : WARM
+  const anchors = { envelope: useRef(null) }
 
   // Scroll to top on open
-  useEffect(() => { window.scrollTo(0, 0) }, [])
+  useEffect(() => { window.scrollTo(0, 0); injectGaramond() }, [])
 
   const handleSave = async () => {
     if (!title.trim()) { setErr('Title is required'); return }
@@ -70,12 +99,20 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: "'Lora', Georgia, serif" }}>
+      {immersive && (
+        <SceneBoundary onFail={() => setSceneFailed(true)}>
+          <Suspense fallback={null}>
+            <LetterExperience anchors={anchors} isMobile={isMobile} title={ann.title} />
+          </Suspense>
+        </SceneBoundary>
+      )}
+      <div style={{ position: 'relative', zIndex: 1 }}>
 
       {/* ── Atmospheric top bar ─────────────────────────────────────────────── */}
       <div style={{
-        background: `linear-gradient(90deg, ${C.bgMid} 0%, #2c1e08 50%, ${C.bgMid} 100%)`,
+        background: immersive ? C.bgMid : `linear-gradient(90deg, ${C.bgMid} 0%, #2c1e08 50%, ${C.bgMid} 100%)`,
         borderBottom: `1px solid ${C.amberBorder}`,
-        padding: '14px 48px',
+        padding: isMobile ? '12px 18px' : '14px 48px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 10,
         backdropFilter: 'blur(12px)',
@@ -95,7 +132,7 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
 
         {/* Label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertIcon size={16} color={C.amber} />
+          {immersive ? <span style={{ color: C.amber, fontSize: '0.9rem' }}>✦</span> : <AlertIcon size={16} color={C.amber} />}
           <span style={{
             fontFamily: "'Playfair Display', serif", fontSize: '0.75rem',
             letterSpacing: '0.18em', textTransform: 'uppercase',
@@ -107,7 +144,7 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
               background: C.amberDim, border: `1px solid ${C.amberBorder}`,
               color: C.amber, padding: '2px 8px', borderRadius: 20,
               letterSpacing: '0.06em',
-            }}>📌 Pinned</span>
+            }}>{immersive ? '★' : '📌'} Pinned</span>
           )}
         </div>
 
@@ -137,14 +174,18 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
       </div>
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 780, margin: '0 auto', padding: '64px 40px 100px' }}>
+      <div style={{ maxWidth: 780, margin: '0 auto', padding: isMobile ? '40px 22px 90px' : '64px 40px 100px' }}>
 
-        {/* Decorative rule */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
-          <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, ${C.amberBorder}, transparent)` }} />
-          <AlertIcon size={20} color={C.amber} />
-          <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, ${C.amberBorder}, transparent)` }} />
-        </div>
+        {/* Immersive: the 3D envelope opens here; classic: a decorative rule */}
+        {immersive && !editing ? (
+          <div ref={anchors.envelope} aria-hidden style={{ width: isMobile ? 290 : 420, height: isMobile ? 260 : 360, margin: '0 auto 24px' }} />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, ${C.amberBorder}, transparent)` }} />
+            <AlertIcon size={20} color={C.amber} />
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, ${C.amberBorder}, transparent)` }} />
+          </div>
+        )}
 
         {/* Date */}
         <div style={{
@@ -171,7 +212,7 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
                 placeholder="Announcement title"
                 style={{
                   width: '100%', boxSizing: 'border-box',
-                  background: '#221a0a', border: `1px solid ${C.amberBorder}`,
+                  background: C.field, border: `1px solid ${C.amberBorder}`,
                   borderRadius: 8, padding: '12px 16px',
                   fontFamily: "'Playfair Display', Georgia, serif",
                   fontSize: '1.5rem', fontWeight: 700, color: C.ink,
@@ -200,7 +241,7 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
                 Body
               </label>
               <div style={{ '--rte-bg': '#221a0a', '--rte-border': C.amberBorder }}>
-                <AnnouncementEditor value={body} onChange={setBody} />
+                <AnnouncementEditor value={body} onChange={setBody} C={C} />
               </div>
             </div>
 
@@ -220,6 +261,10 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
               fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900,
               color: C.ink, lineHeight: 1.2, textAlign: 'center',
               marginBottom: 40, letterSpacing: '-0.01em',
+              ...(immersive ? {
+                backgroundImage: 'linear-gradient(180deg, #fcf5e4 0%, #f1dfb6 55%, #ddbb78 100%)',
+                WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+              } : {}),
             }}>
               {ann.title}
             </h1>
@@ -233,7 +278,14 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
                 '--rt-link-hover': '#f0c060',
                 '--rt-link-glow': 'rgba(232,160,48,0.45)',
               }}>
-                {renderRichText(ann.body, {
+                {renderRichText(ann.body, immersive ? {
+                  color: 'rgba(245,236,214,0.88)',
+                  headingColor: '#fbf3df',
+                  accentColor: C.amber,
+                  lineHeight: 1.85,
+                  fontFamily: GARAMOND,
+                  fontSize: isMobile ? '1.12rem' : '1.24rem',
+                } : {
                   color: 'rgba(245,240,232,0.82)',
                   headingColor: C.ink,
                   accentColor: C.amber,
@@ -255,12 +307,13 @@ export default function AnnouncementPage({ announcement: initial, onBack, onUpda
           </>
         )}
       </div>
+      </div>
     </div>
   )
 }
 
 // ── Dark-themed RichTextEditor wrapper for announcement editing ───────────────
-function AnnouncementEditor({ value, onChange }) {
+function AnnouncementEditor({ value, onChange, C = WARM }) {
   const [ref] = useState(() => ({ current: null }))
 
   const wrap = (prefix, suffix = '') => {
@@ -300,7 +353,7 @@ function AnnouncementEditor({ value, onChange }) {
   const btnStyle = (active) => ({
     padding: '4px 9px', borderRadius: 5, cursor: 'pointer', lineHeight: 1,
     border: `1px solid ${C.amberBorder}`,
-    background: active ? C.amberDim : 'rgba(232,160,48,0.04)',
+    background: active ? C.amberDim : 'transparent',
     color: C.amber, fontSize: '0.75rem', fontFamily: 'monospace',
     transition: 'all 0.15s',
   })
@@ -308,7 +361,7 @@ function AnnouncementEditor({ value, onChange }) {
   const Btn = ({ label, title, onClick }) => (
     <button type="button" title={title} onClick={onClick} style={btnStyle(false)}
       onMouseEnter={e => e.currentTarget.style.background = C.amberDim}
-      onMouseLeave={e => e.currentTarget.style.background = 'rgba(232,160,48,0.04)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >{label}</button>
   )
 
@@ -317,7 +370,7 @@ function AnnouncementEditor({ value, onChange }) {
       {/* Toolbar */}
       <div style={{
         display: 'flex', gap: 5, flexWrap: 'wrap', padding: '8px 10px',
-        background: 'rgba(232,160,48,0.04)',
+        background: C.amberDim,
         border: `1px solid ${C.amberBorder}`, borderBottom: 'none',
         borderRadius: '8px 8px 0 0',
       }}>
@@ -357,9 +410,9 @@ function AnnouncementEditor({ value, onChange }) {
         placeholder="Write your announcement… use **bold**, _italic_, # Heading, - list item"
         style={{
           width: '100%', boxSizing: 'border-box', padding: '14px 16px',
-          background: '#221a0a',
+          background: C.field,
           border: `1px solid ${C.amberBorder}`,
-          borderTop: `1px solid rgba(232,160,48,0.12)`,
+          borderTop: `1px solid ${C.amberDim}`,
           borderRadius: '0 0 8px 8px',
           fontFamily: "'Lora', Georgia, serif",
           fontSize: '0.92rem', color: C.ink, lineHeight: 1.8,

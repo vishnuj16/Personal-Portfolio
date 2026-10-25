@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { imgUrl } from '../api'
 import useMediaQuery from '../hooks/useMediaQuery'
+import { safeHref } from '../utils/url'
 
 const CYAN   = '#00e5ff'
 const GREEN  = '#00ff87'
@@ -293,7 +294,7 @@ function LinkRow({ href, label, icon, accent }) {
   const [hov, setHov] = useState(false)
   return (
     <a
-      href={href} target="_blank" rel="noopener noreferrer"
+      href={safeHref(href)} target="_blank" rel="noopener noreferrer"
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
