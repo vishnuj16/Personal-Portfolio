@@ -180,9 +180,12 @@ func ListExperiences(c *gin.Context) {
 	exps := []models.Experience{}
 	for rows.Next() {
 		var e models.Experience
-		rows.Scan(&e.ID, &e.Company, &e.Role, &e.Description, &e.LogoURL,
+		if err := rows.Scan(&e.ID, &e.Company, &e.Role, &e.Description, &e.LogoURL,
 			&e.CompanyURL, &e.StartedAt, &e.EndedAt, &e.Current,
-			&e.SortOrder, &e.CreatedAt, &e.UpdatedAt)
+			&e.SortOrder, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		exps = append(exps, e)
 	}
 	c.JSON(http.StatusOK, exps)
@@ -234,7 +237,10 @@ func UpdateExperience(c *gin.Context) {
 		Current     *bool   `json:"current"`
 		SortOrder   *int    `json:"sort_order"`
 	}
-	c.ShouldBindJSON(&body)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	fields := map[string]interface{}{}
 	if body.Company != nil {
@@ -265,8 +271,8 @@ func UpdateExperience(c *gin.Context) {
 		fields["sort_order"] = *body.SortOrder
 	}
 
-	for col, val := range fields {
-		database.DB.Exec(`UPDATE experiences SET `+col+`=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, val, id)
+	if writeErr(c, updateRow(database.DB, "experiences", id, fields)) {
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }
@@ -274,7 +280,9 @@ func UpdateExperience(c *gin.Context) {
 // DELETE /api/admin/experiences/:id
 func DeleteExperience(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	database.DB.Exec(`DELETE FROM experiences WHERE id=?`, id)
+	if writeErr(c, deleteRow("experiences", id)) {
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }
 
@@ -294,8 +302,11 @@ func ListEducation(c *gin.Context) {
 	edu := []models.Education{}
 	for rows.Next() {
 		var e models.Education
-		rows.Scan(&e.ID, &e.Institution, &e.Degree, &e.Field, &e.LogoURL,
-			&e.StartedAt, &e.EndedAt, &e.CreatedAt, &e.UpdatedAt)
+		if err := rows.Scan(&e.ID, &e.Institution, &e.Degree, &e.Field, &e.LogoURL,
+			&e.StartedAt, &e.EndedAt, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		edu = append(edu, e)
 	}
 	c.JSON(http.StatusOK, edu)
@@ -338,7 +349,10 @@ func UpdateEducation(c *gin.Context) {
 		StartedAt   *string `json:"started_at"`
 		EndedAt     *string `json:"ended_at"`
 	}
-	c.ShouldBindJSON(&body)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	fields := map[string]interface{}{}
 	if body.Institution != nil {
 		fields["institution"] = *body.Institution
@@ -358,8 +372,8 @@ func UpdateEducation(c *gin.Context) {
 	if body.EndedAt != nil {
 		fields["ended_at"] = *body.EndedAt
 	}
-	for col, val := range fields {
-		database.DB.Exec(`UPDATE education SET `+col+`=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, val, id)
+	if writeErr(c, updateRow(database.DB, "education", id, fields)) {
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }
@@ -367,6 +381,8 @@ func UpdateEducation(c *gin.Context) {
 // DELETE /api/admin/education/:id
 func DeleteEducation(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	database.DB.Exec(`DELETE FROM education WHERE id=?`, id)
+	if writeErr(c, deleteRow("education", id)) {
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }

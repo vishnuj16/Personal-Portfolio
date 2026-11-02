@@ -61,7 +61,7 @@ func main() {
 	if err := os.MkdirAll("./uploads", 0o755); err != nil {
 		log.Fatalf("Failed to create uploads directory: %v", err)
 	}
-	r.Static("/uploads", "./uploads")
+	r.Group("/uploads", handlers.SecureUploads()).Static("/", "./uploads")
 
 	// ─── Auth ────────────────────────────────────────────────────────────────
 	r.POST("/api/auth/verify", auth.VerifyPasskey)
@@ -139,6 +139,12 @@ func main() {
 		admin.PATCH("/books/:id", handlers.UpdateBook)
 		admin.DELETE("/books/:id", handlers.DeleteBook)
 
+		// Book reviews — admin
+		admin.POST("/books/:id/reviews", handlers.CreateReview)
+		admin.POST("/books/:id/reviews/reorder", handlers.ReorderReviews)
+		admin.PATCH("/reviews/:id", handlers.UpdateReview)
+		admin.DELETE("/reviews/:id", handlers.DeleteReview)
+
 		//Announcemtns - admin
 		admin.POST("/announcements", handlers.CreateAnnouncement)
 		admin.PATCH("/announcements/:id", handlers.UpdateAnnouncement)
@@ -166,7 +172,7 @@ func main() {
 			}
 		}
 
-		c.File(filepath.Join(frontendDistDir, "index.html"))
+		handlers.ServeIndex(c, frontendDistDir)
 	})
 
 	port := os.Getenv("PORT")

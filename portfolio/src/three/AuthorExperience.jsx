@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { makeClosedBookTextures, closedEdgeTextures, makeStreakTexture } from './textures'
 import { createSketchCoverMaterial } from './sketchCover'
-import { darken } from '../utils/color'
+import { darken, hexToRgb, DEFAULT_AUTHOR_THEME } from '../utils/color'
 import { imgUrl } from '../api'
 
 // ── Author page: "a library among the stars" ───────────────────────────────────
@@ -55,8 +55,10 @@ function toWorld(m, x, y) {
   return [(x / m.vw - 0.5) * m.worldW, -(y / m.vh - 0.5) * m.worldH]
 }
 const onScreen = (m, r, margin = 120) => r && r.bottom > -margin && r.top < m.vh + margin
+// hex → raw 0..1 vector for shader uniforms (colours are written as-is, no sRGB decode)
+const v3 = hex => { const { r, g, b } = hexToRgb(hex); return new THREE.Vector3(r / 255, g / 255, b / 255) }
 
-function Scene({ books, newRelease, featured, anchors, isMobile, onReady }) {
+function Scene({ books, newRelease, featured, anchors, isMobile, onReady, theme = DEFAULT_AUTHOR_THEME }) {
   const { gl, scene } = useThree()
   const m = useRef({ vw: 1, vh: 1, worldW: 1, worldH: 1, px: 1, scroll: 0 }).current
   const [tex, setTex] = useState(null) // book id → closed-book textures
@@ -106,14 +108,14 @@ function Scene({ books, newRelease, featured, anchors, isMobile, onReady }) {
 
   return (
     <>
-      <Sky />
-      <Stars m={m} isMobile={isMobile} />
-      <Galaxy m={m} isMobile={isMobile} />
-      <ShootingStars m={m} />
-      <Lights />
-      {CONSTELLATIONS.map(c => <Constellation key={c.id} def={c} m={m} isMobile={isMobile} />)}
-      {tex && <Orrery tex={tex} center={newRelease} m={m} isMobile={isMobile} />}
-      {tex && featured.length > 0 && <FeaturedRing tex={tex} books={featured} m={m} />}
+      <Sky theme={theme} />
+      <Stars m={m} isMobile={isMobile} theme={theme} />
+      <Galaxy m={m} isMobile={isMobile} theme={theme} />
+      <ShootingStars m={m} theme={theme} />
+      <Lights theme={theme} />
+      {CONSTELLATIONS.map(c => <Constellation key={c.id} def={c} m={m} isMobile={isMobile} theme={theme} />)}
+      {tex && <Orrery tex={tex} center={newRelease} m={m} isMobile={isMobile} theme={theme} />}
+      {tex && featured.length > 0 && <FeaturedRing tex={tex} books={featured} m={m} theme={theme} />}
       {tex && <Shelf tex={tex} books={books} m={m} />}
       {tex && <SoonShelf tex={tex} books={books.filter(b => b.coming_soon)} m={m} />}
     </>
@@ -122,21 +124,21 @@ function Scene({ books, newRelease, featured, anchors, isMobile, onReady }) {
 
 // ── Sky ────────────────────────────────────────────────────────────────────────
 
-export function Sky() {
+export function Sky({ theme = DEFAULT_AUTHOR_THEME }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     depthTest: false, depthWrite: false,
+    uniforms: { uTop: { value: v3(theme.skyTop) }, uBottom: { value: v3(theme.skyBottom) }, uGlow: { value: v3(theme.deep) } },
     vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.9999, 1.0); }`,
     fragmentShader: `
+      uniform vec3 uTop; uniform vec3 uBottom; uniform vec3 uGlow;
       varying vec2 vUv;
       void main() {
-        vec3 top = vec3(0.035, 0.055, 0.12);
-        vec3 bottom = vec3(0.008, 0.01, 0.025);
-        vec3 col = mix(bottom, top, smoothstep(0.0, 1.0, vUv.y));
+        vec3 col = mix(uBottom, uTop, smoothstep(0.0, 1.0, vUv.y));
         float d = length((vUv - vec2(0.5, 0.62)) * vec2(1.6, 1.0));
-        col += vec3(0.05, 0.06, 0.11) * smoothstep(0.9, 0.0, d) * 0.6;   // faint glow, not cloud
+        col += uGlow * smoothstep(0.9, 0.0, d) * 0.45;   // faint glow, not cloud
         gl_FragColor = vec4(col, 1.0);
       }`,
-  }), [])
+  }), [theme.skyTop, theme.skyBottom, theme.deep])
   return (
     <mesh frustumCulled={false} renderOrder={-10} material={mat}>
       <planeGeometry args={[2, 2]} />
@@ -163,6 +165,7 @@ const starVert = /* glsl */ `
   }
 `
 const starFrag = /* glsl */ `
+  uniform vec3 uTint;
   varying vec3 vColor; varying float vTw;
   void main() {
     vec2 c = gl_PointCoord - 0.5;
@@ -171,11 +174,11 @@ const starFrag = /* glsl */ `
     float a = core * core * vTw;
     // a faint cross-flare on the brighter ones
     a += (smoothstep(0.06, 0.0, abs(c.x)) + smoothstep(0.06, 0.0, abs(c.y))) * smoothstep(0.5, 0.1, d) * 0.25 * vTw;
-    gl_FragColor = vec4(vColor, a);
+    gl_FragColor = vec4(mix(vColor, uTint, 0.35), a);
   }
 `
 
-export function Stars({ m, isMobile }) {
+export function Stars({ m, isMobile, theme = DEFAULT_AUTHOR_THEME }) {
   const { size, viewport } = useThree()
   const count = isMobile ? 1600 : 3800
   const span = 2 * CAM_Z * Math.tan((FOV * Math.PI) / 360) * 4
@@ -209,8 +212,8 @@ export function Stars({ m, isMobile }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     vertexShader: starVert, fragmentShader: starFrag,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uScroll: { value: 0 }, uPR: { value: 1 }, uSpan: { value: span } },
-  }), [span])
+    uniforms: { uTime: { value: 0 }, uScroll: { value: 0 }, uPR: { value: 1 }, uSpan: { value: span }, uTint: { value: v3(theme.star) } },
+  }), [span, theme.star])
 
   useFrame(({ clock }) => {
     mat.uniforms.uTime.value = clock.elapsedTime
@@ -237,19 +240,19 @@ const galaxyVert = /* glsl */ `
   }
 `
 const galaxyFrag = /* glsl */ `
-  uniform float uOpacity;
+  uniform float uOpacity; uniform vec3 uCore; uniform vec3 uArm;
   varying float vMix; varying float vR;
   void main() {
     float d = length(gl_PointCoord - 0.5);
     float a = smoothstep(0.5, 0.0, d);
-    vec3 core = vec3(1.0, 0.86, 0.6);
-    vec3 arm = vec3(0.62, 0.74, 1.0);
+    vec3 core = uCore;
+    vec3 arm = uArm;
     vec3 col = mix(core, arm, smoothstep(0.08, 0.7, vR) * vMix);
     gl_FragColor = vec4(col, a * a * uOpacity * (1.0 - smoothstep(0.75, 1.0, vR)));
   }
 `
 
-function Galaxy({ m, isMobile }) {
+function Galaxy({ m, isMobile, theme }) {
   const { viewport } = useThree()
   const group = useRef()
   const count = isMobile ? 5000 : 12000
@@ -275,8 +278,11 @@ function Galaxy({ m, isMobile }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     vertexShader: galaxyVert, fragmentShader: galaxyFrag,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uPR: { value: 1 }, uRadius: { value: 8 }, uOpacity: { value: 1 } },
-  }), [])
+    uniforms: {
+      uTime: { value: 0 }, uPR: { value: 1 }, uRadius: { value: 8 }, uOpacity: { value: 1 },
+      uCore: { value: v3(theme.core) }, uArm: { value: v3(theme.arm) },
+    },
+  }), [theme.core, theme.arm])
   const core = useRef()
   const coreTex = useMemo(() => glowTexture(), [])
 
@@ -310,7 +316,7 @@ function Galaxy({ m, isMobile }) {
       <group ref={group}><points geometry={geo} material={mat} frustumCulled={false} renderOrder={-4} /></group>
       <mesh ref={core} renderOrder={-4}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={coreTex} color="#ffd9a0" transparent opacity={0.4}
+        <meshBasicMaterial map={coreTex} color={theme.core} transparent opacity={0.4}
           blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
     </>
@@ -319,7 +325,7 @@ function Galaxy({ m, isMobile }) {
 
 // ── Shooting stars ─────────────────────────────────────────────────────────────
 
-export function ShootingStars({ m }) {
+export function ShootingStars({ m, theme = DEFAULT_AUTHOR_THEME }) {
   const tex = useMemo(() => makeStreakTexture(), [])
   const refs = useRef([])
   const state = useRef([0, 1, 2].map(i => ({ live: false, t: 0, next: 1.5 + i * 2.8 }))).current
@@ -355,7 +361,7 @@ export function ShootingStars({ m }) {
   return [0, 1, 2].map(i => (
     <mesh key={i} ref={el => (refs.current[i] = el)} visible={false} renderOrder={-3}>
       <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={tex} color="#fff3d6" transparent opacity={0}
+      <meshBasicMaterial map={tex} color={theme.star} transparent opacity={0}
         blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
     </mesh>
   ))
@@ -363,7 +369,7 @@ export function ShootingStars({ m }) {
 
 // ── Lights ─────────────────────────────────────────────────────────────────────
 
-export function Lights() {
+export function Lights({ theme = DEFAULT_AUTHOR_THEME }) {
   const sweep = useRef()
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
@@ -374,7 +380,7 @@ export function Lights() {
       <ambientLight intensity={0.95} color="#e8ecff" />
       <directionalLight position={[-4, 5, 8]} intensity={2.1} color="#fff1dc" />
       <directionalLight position={[3, -2, 6]} intensity={0.6} color="#cfd8ff" />
-      <pointLight position={[5, 2, -3]} intensity={30} distance={22} color="#7f9cff" />
+      <pointLight position={[5, 2, -3]} intensity={30} distance={22} color={theme.arm} />
       <pointLight ref={sweep} intensity={8} distance={16} color="#ffe8c0" />
     </>
   )
@@ -414,14 +420,16 @@ function ClosedBook({ t, book, innerRef }) {
 // A fixed number of glowing moons on gold rings, so the hero stays uncluttered
 // however many books the library holds (the shelf and turntable show the rest).
 
+// Moon colours come from the theme: its light highlight, the galaxy arm and core tints
 const MOONS = [
-  { radius: 1.0, speed: 0.22, phase: 0.4, tilt: 0.42, size: 1.0, color: '#ffe2a8' },
-  { radius: 1.22, speed: -0.15, phase: 2.6, tilt: 0.36, size: 0.75, color: '#bcd0ff' },
-  { radius: 1.46, speed: 0.1, phase: 4.4, tilt: 0.47, size: 0.6, color: '#ffd4e0' },
+  { radius: 1.0, speed: 0.22, phase: 0.4, tilt: 0.42, size: 1.0, tone: 'goldLight' },
+  { radius: 1.22, speed: -0.15, phase: 2.6, tilt: 0.36, size: 0.75, tone: 'arm' },
+  { radius: 1.46, speed: 0.1, phase: 4.4, tilt: 0.47, size: 0.6, tone: 'core' },
 ]
 const TRAIL = 22
 
-function OrbitMoon({ moon, center, isMobile }) {
+function OrbitMoon({ moon, center, isMobile, theme }) {
+  const color = theme[moon.tone]
   const ring = useRef()
   const head = useRef()
   const trail = useRef()
@@ -439,12 +447,12 @@ function OrbitMoon({ moon, center, isMobile }) {
   }, [])
   const trailMat = useMemo(() => new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    uniforms: { uColor: { value: new THREE.Color(moon.color) }, uSize: { value: 10 } },
+    uniforms: { uColor: { value: new THREE.Color(color) }, uSize: { value: 10 } },
     vertexShader: `attribute float aFade; uniform float uSize; varying float vF;
       void main() { vF = aFade; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = uSize * aFade; }`,
     fragmentShader: `uniform vec3 uColor; varying float vF;
       void main() { float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(uColor, smoothstep(0.5, 0.0, d) * vF * 0.85); }`,
-  }), [moon.color])
+  }), [color])
 
   // Position on the tilted orbit for an angle
   const at = (th, c, a) => {
@@ -480,19 +488,19 @@ function OrbitMoon({ moon, center, isMobile }) {
   return (
     <>
       <line ref={ring} geometry={ringGeo}>
-        <lineBasicMaterial color="#d9b56a" transparent opacity={0.18} depthWrite={false} />
+        <lineBasicMaterial color={theme.gold} transparent opacity={0.18} depthWrite={false} />
       </line>
       <points ref={trail} geometry={trailGeo} material={trailMat} frustumCulled={false} />
       <mesh ref={head}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={glow} color={moon.color} transparent blending={THREE.AdditiveBlending}
+        <meshBasicMaterial map={glow} color={color} transparent blending={THREE.AdditiveBlending}
           depthWrite={false} toneMapped={false} />
       </mesh>
     </>
   )
 }
 
-function Orrery({ tex, center, m, isMobile }) {
+function Orrery({ tex, center, m, isMobile, theme }) {
   const centerBook = useRef()
   const shared = useRef({ visible: false, x: 0, y: 0, unit: 1 })
   const born = useRef(null)
@@ -521,14 +529,14 @@ function Orrery({ tex, center, m, isMobile }) {
   return (
     <>
       {ct && <group ref={centerBook}><ClosedBook t={ct} book={center} /></group>}
-      {MOONS.map((moon, i) => <OrbitMoon key={i} moon={moon} center={shared} isMobile={isMobile} />)}
+      {MOONS.map((moon, i) => <OrbitMoon key={i} moon={moon} center={shared} isMobile={isMobile} theme={theme} />)}
     </>
   )
 }
 
 // ── Featured ring: a turntable of featured books ───────────────────────────────
 
-function FeaturedRing({ tex, books, m }) {
+function FeaturedRing({ tex, books, m, theme }) {
   const group = useRef()
   const items = useRef([])
   const angle = useRef(0)
@@ -577,7 +585,7 @@ function FeaturedRing({ tex, books, m }) {
   return (
     <group ref={group}>
       <line ref={ring} geometry={ringGeo}>
-        <lineBasicMaterial color="#d9b56a" transparent opacity={0.3} depthWrite={false} />
+        <lineBasicMaterial color={theme.gold} transparent opacity={0.3} depthWrite={false} />
       </line>
       {books.map((b, i) => (
         <group key={b.id} ref={el => (items.current[i] = el)}>
@@ -647,7 +655,7 @@ const CONSTELLATIONS = [
   },
 ]
 
-function Constellation({ def, m, isMobile }) {
+function Constellation({ def, m, isMobile, theme }) {
   const group = useRef()
   const lines = useRef()
   const dots = useRef()
@@ -665,9 +673,9 @@ function Constellation({ def, m, isMobile }) {
   }, [def])
 
   const dotMat = useMemo(() => new THREE.PointsMaterial({
-    color: '#fff1cf', size: isMobile ? 5 : 7, sizeAttenuation: false, transparent: true, opacity: 0,
+    color: theme.goldLight, size: isMobile ? 5 : 7, sizeAttenuation: false, transparent: true, opacity: 0,
     depthWrite: false, blending: THREE.AdditiveBlending, map: dotTexture(),
-  }), [isMobile])
+  }), [isMobile, theme.goldLight])
 
   useFrame(({ clock }, delta) => {
     const g = group.current
@@ -694,7 +702,7 @@ function Constellation({ def, m, isMobile }) {
   return (
     <group ref={group}>
       <lineSegments ref={lines} geometry={lineGeo}>
-        <lineBasicMaterial color="#d9b56a" transparent opacity={0} depthWrite={false} />
+        <lineBasicMaterial color={theme.gold} transparent opacity={0} depthWrite={false} />
       </lineSegments>
       <points ref={dots} geometry={dotGeo} material={dotMat} />
     </group>

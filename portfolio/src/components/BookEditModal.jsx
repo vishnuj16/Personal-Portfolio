@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createBook, updateBook, uploadFile, imgUrl } from '../api'
 import { RichTextEditor } from './RichText'
 import useMediaQuery from '../hooks/useMediaQuery'
-import { isLight } from '../utils/color'
+import ColorPicker from './ColorPicker'
 
 const BOOK_TYPES = ['novel', 'novella', 'short story', 'collection', 'non-fiction', 'poetry']
 const GENRES = [
@@ -248,7 +248,6 @@ export default function BookEditModal({ book, onSave, onClose }) {
     finally { setSaving(false) }
   }
 
-  const accent = values.theme_color || '#c9a84c'
 
   return (
     <div style={{
@@ -324,26 +323,9 @@ export default function BookEditModal({ book, onSave, onClose }) {
 
           {/* Theme colour */}
           <div style={{ marginBottom: 22, padding: '14px 16px', background: 'rgba(201,168,76,0.04)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.12)' }}>
-            <Label sub="sets the hero background & card accents">Theme Colour</Label>
-            <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: 12, marginTop: 6 }}>
-              <input type="color" value={accent} onChange={e => set('theme_color', e.target.value)}
-                style={{ width: 46, height: 46, borderRadius: 9, border: '2px solid rgba(201,168,76,0.3)', cursor: 'pointer', padding: 2, background: 'transparent', flexShrink: 0 }} />
-              <input value={accent} onChange={e => set('theme_color', e.target.value)} placeholder="#c9a84c"
-                style={{ ...F, fontFamily: 'monospace', letterSpacing: '0.06em', flex: 1 }} onFocus={focus} onBlur={blur} />
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: isMobile ? '100%' : 180 }}>
-                {[
-                  '#e63946','#c1121f','#e76f51','#f4a261',
-                  '#e9c46a','#c9a84c','#2a9d8f','#52b788',
-                  '#457b9d','#264653','#6a4c93','#9b5de5',
-                  '#f72585','#b5179e','#6b4226','#8b8000',
-                ].map(c => (
-                  <button key={c} onClick={() => set('theme_color', c)} title={c} type="button" style={{ width: 20, height: 20, borderRadius: '50%', padding: 0, cursor: 'pointer', background: c, border: accent === c ? '2px solid #3d2e1a' : '2px solid transparent', transform: accent === c ? 'scale(1.25)' : 'scale(1)', transition: 'transform 0.1s' }} />
-                ))}
-              </div>
-            </div>
-            <div style={{ marginTop: 10, padding: '7px 12px', borderRadius: 6, background: accent, fontSize: '0.72rem', fontStyle: 'italic', fontFamily: "'Lora', serif", color: isLight(accent) ? '#1a1410' : '#f5f0e8' }}>
-              Preview — used as hero tint and card accent
-            </div>
+            <Label sub="sets the book page hero, card accents and — for the new release — the author page sky">Theme Colour</Label>
+            <ColorPicker value={values.theme_color} onChange={c => set('theme_color', c)}
+              coverUrl={values.cover_url ? imgUrl(values.cover_url) : null} />
           </div>
 
           {/* Title + Subtitle */}

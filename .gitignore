@@ -12,6 +12,8 @@ backend/.env
 # your production data with local test data
 backend/*.db
 backend/*.db-journal
+backend/*.db-wal
+backend/*.db-shm
 backend/uploads/
 
 # --- OS / IDE ---

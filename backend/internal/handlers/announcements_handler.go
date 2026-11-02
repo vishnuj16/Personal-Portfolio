@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	"strings"
 	"time"
@@ -132,8 +133,12 @@ func UpdateAnnouncement(c *gin.Context) {
 	set += "updated_at = CURRENT_TIMESTAMP"
 	args = append(args, id)
 
-	if _, err := database.DB.Exec(`UPDATE announcements SET `+set+` WHERE id = ?`, args...); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	res, err := database.DB.Exec(`UPDATE announcements SET `+set+` WHERE id = ?`, args...)
+	if writeErr(c, err) {
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeErr(c, sql.ErrNoRows)
 		return
 	}
 
@@ -149,8 +154,7 @@ func UpdateAnnouncement(c *gin.Context) {
 // DELETE /api/admin/announcements/:id
 func DeleteAnnouncement(c *gin.Context) {
 	id := c.Param("id")
-	if _, err := database.DB.Exec(`DELETE FROM announcements WHERE id = ?`, id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if writeErr(c, deleteRow("announcements", id)) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"deleted": true})

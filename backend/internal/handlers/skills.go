@@ -53,7 +53,7 @@ func CreateCategory(c *gin.Context) {
 		INSERT INTO skill_categories (name, slug, image_url, sort_order)
 		VALUES (?, ?, ?, ?)`, body.Name, slug, body.ImageURL, body.SortOrder)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "category already exists or db error: " + err.Error()})
+		writeErr(c, err)
 		return
 	}
 
@@ -74,15 +74,19 @@ func UpdateCategory(c *gin.Context) {
 		return
 	}
 
+	fields := map[string]any{}
 	if body.Name != nil {
-		slug := models.Slugify(*body.Name)
-		database.DB.Exec(`UPDATE skill_categories SET name=?, slug=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.Name, slug, id)
+		fields["name"] = *body.Name
+		fields["slug"] = models.Slugify(*body.Name)
 	}
 	if body.ImageURL != nil {
-		database.DB.Exec(`UPDATE skill_categories SET image_url=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.ImageURL, id)
+		fields["image_url"] = *body.ImageURL
 	}
 	if body.SortOrder != nil {
-		database.DB.Exec(`UPDATE skill_categories SET sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.SortOrder, id)
+		fields["sort_order"] = *body.SortOrder
+	}
+	if writeErr(c, updateRow(database.DB, "skill_categories", id, fields)) {
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }
@@ -129,8 +133,11 @@ func ListSkills(c *gin.Context) {
 	skills := []models.Skill{}
 	for rows.Next() {
 		var s models.Skill
-		rows.Scan(&s.ID, &s.CategoryID, &s.Name, &s.Slug, &s.ImageURL,
-			&s.Proficiency, &s.Years, &s.SortOrder, &s.CreatedAt, &s.UpdatedAt)
+		if err := rows.Scan(&s.ID, &s.CategoryID, &s.Name, &s.Slug, &s.ImageURL,
+			&s.Proficiency, &s.Years, &s.SortOrder, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		skills = append(skills, s)
 	}
 	c.JSON(http.StatusOK, skills)
@@ -157,7 +164,7 @@ func CreateSkill(c *gin.Context) {
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		body.CategoryID, body.Name, slug, body.ImageURL, body.Proficiency, body.Years, body.SortOrder)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "skill already exists or db error: " + err.Error()})
+		writeErr(c, err)
 		return
 	}
 	id, _ := res.LastInsertId()
@@ -180,24 +187,28 @@ func UpdateSkill(c *gin.Context) {
 		return
 	}
 
+	fields := map[string]any{}
 	if body.CategoryID != nil {
-		database.DB.Exec(`UPDATE skills SET category_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.CategoryID, id)
+		fields["category_id"] = *body.CategoryID
 	}
 	if body.Name != nil {
-		slug := models.Slugify(*body.Name)
-		database.DB.Exec(`UPDATE skills SET name=?, slug=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.Name, slug, id)
+		fields["name"] = *body.Name
+		fields["slug"] = models.Slugify(*body.Name)
 	}
 	if body.ImageURL != nil {
-		database.DB.Exec(`UPDATE skills SET image_url=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.ImageURL, id)
+		fields["image_url"] = *body.ImageURL
 	}
 	if body.Proficiency != nil {
-		database.DB.Exec(`UPDATE skills SET proficiency=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.Proficiency, id)
+		fields["proficiency"] = *body.Proficiency
 	}
 	if body.Years != nil {
-		database.DB.Exec(`UPDATE skills SET years=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.Years, id)
+		fields["years"] = *body.Years
 	}
 	if body.SortOrder != nil {
-		database.DB.Exec(`UPDATE skills SET sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, *body.SortOrder, id)
+		fields["sort_order"] = *body.SortOrder
+	}
+	if writeErr(c, updateRow(database.DB, "skills", id, fields)) {
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }

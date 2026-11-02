@@ -35,7 +35,7 @@ func scanBook(row interface{ Scan(...any) error }) (*models.Book, error) {
 		&b.Genre, &b.BookType, &b.Published, &b.SelfPublished, &b.Publisher,
 		&b.PublishedAt, &b.AmazonURL, &b.GoodreadsURL, &b.OtherBuyURL,
 		&b.Pages, &b.ISBN, &b.Featured, &b.NewRelease, &b.ComingSoon, &b.EstimatedRelease,
-		&b.ThemeColor, &b.SortOrder, &b.CreatedAt, &b.UpdatedAt,
+		&b.ThemeColor, &b.OpeningLine, &b.SortOrder, &b.CreatedAt, &b.UpdatedAt,
 	)
 }
 
@@ -44,7 +44,7 @@ const bookColumns = `
 	genre, book_type, published, self_published, publisher,
 	published_at, amazon_url, goodreads_url, other_buy_url,
 	pages, isbn, featured, new_release, coming_soon, estimated_release,
-	theme_color, sort_order, created_at, updated_at`
+	theme_color, opening_line, sort_order, created_at, updated_at`
 
 // ─── GET /api/books ───────────────────────────────────────────────────────────
 func GetBooks(c *gin.Context) {
@@ -107,6 +107,12 @@ func GetBook(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	reviews, err := fetchBookReviews(b.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	b.Reviews = reviews
 	c.JSON(http.StatusOK, b)
 }
 
@@ -133,6 +139,7 @@ func CreateBook(c *gin.Context) {
 		ComingSoon       bool    `json:"coming_soon"`
 		EstimatedRelease *string `json:"estimated_release"`
 		ThemeColor       *string `json:"theme_color"`
+		OpeningLine      *string `json:"opening_line"`
 		SortOrder        int     `json:"sort_order"`
 	}
 	if err := c.ShouldBindJSON(&in); err != nil {
@@ -150,12 +157,12 @@ func CreateBook(c *gin.Context) {
 			title, slug, subtitle, description, cover_url,
 			genre, book_type, published, self_published, publisher,
 			published_at, amazon_url, goodreads_url, other_buy_url,
-			pages, isbn, featured, new_release, coming_soon, estimated_release, theme_color, sort_order
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			pages, isbn, featured, new_release, coming_soon, estimated_release, theme_color, opening_line, sort_order
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		in.Title, slug, in.Subtitle, in.Description, in.CoverURL,
 		in.Genre, in.BookType, in.Published, in.SelfPublished, in.Publisher,
 		in.PublishedAt, in.AmazonURL, in.GoodreadsURL, in.OtherBuyURL,
-		in.Pages, in.ISBN, in.Featured, in.NewRelease, in.ComingSoon, in.EstimatedRelease, in.ThemeColor, in.SortOrder,
+		in.Pages, in.ISBN, in.Featured, in.NewRelease, in.ComingSoon, in.EstimatedRelease, in.ThemeColor, in.OpeningLine, in.SortOrder,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -181,7 +188,7 @@ func UpdateBook(c *gin.Context) {
 		"goodreads_url": true, "other_buy_url": true, "pages": true,
 		"isbn": true, "featured": true, "new_release": true,
 		"coming_soon": true, "estimated_release": true,
-		"theme_color": true, "sort_order": true,
+		"theme_color": true, "opening_line": true, "sort_order": true,
 	}
 
 	setClauses := []string{"updated_at = CURRENT_TIMESTAMP"}
@@ -194,15 +201,21 @@ func UpdateBook(c *gin.Context) {
 	}
 	args = append(args, c.Param("id"))
 
-	_, err := database.DB.Exec(
+	res, err := database.DB.Exec(
 		"UPDATE books SET "+strings.Join(setClauses, ", ")+" WHERE id = ?",
 		args...,
 	)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if writeErr(c, err) {
 		return
 	}
-	book, _ := scanBook(database.DB.QueryRow(`SELECT`+bookColumns+` FROM books WHERE id = ?`, c.Param("id")))
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeErr(c, sql.ErrNoRows)
+		return
+	}
+	book, err := scanBook(database.DB.QueryRow(`SELECT`+bookColumns+` FROM books WHERE id = ?`, c.Param("id")))
+	if writeErr(c, err) {
+		return
+	}
 	c.JSON(http.StatusOK, book)
 }
 
@@ -220,12 +233,22 @@ func SetFeaturedBooks(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "maximum 5 featured books allowed"})
 		return
 	}
-	if _, err := database.DB.Exec("UPDATE books SET featured = 0"); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Clear and set in one transaction so a failure can't leave nothing featured
+	tx, err := database.DB.Begin()
+	if writeErr(c, err) {
+		return
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("UPDATE books SET featured = 0"); writeErr(c, err) {
 		return
 	}
 	for _, id := range in.IDs {
-		database.DB.Exec("UPDATE books SET featured = 1 WHERE id = ?", id)
+		if _, err := tx.Exec("UPDATE books SET featured = 1 WHERE id = ?", id); writeErr(c, err) {
+			return
+		}
+	}
+	if writeErr(c, tx.Commit()) {
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"featured": in.IDs})
 }
@@ -240,20 +263,33 @@ func SetNewRelease(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if _, err := database.DB.Exec("UPDATE books SET new_release = 0"); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	tx, err := database.DB.Begin()
+	if writeErr(c, err) {
+		return
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("UPDATE books SET new_release = 0"); writeErr(c, err) {
 		return
 	}
 	if in.ID > 0 {
-		database.DB.Exec("UPDATE books SET new_release = 1 WHERE id = ?", in.ID)
+		res, err := tx.Exec("UPDATE books SET new_release = 1 WHERE id = ?", in.ID)
+		if writeErr(c, err) {
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			writeErr(c, sql.ErrNoRows)
+			return
+		}
+	}
+	if writeErr(c, tx.Commit()) {
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"new_release_id": in.ID})
 }
 
 // ─── DELETE /api/admin/books/:id ──────────────────────────────────────────────
 func DeleteBook(c *gin.Context) {
-	if _, err := database.DB.Exec("DELETE FROM books WHERE id = ?", c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if writeErr(c, deleteRow("books", c.Param("id"))) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"deleted": true})

@@ -15,7 +15,7 @@ import { getAnnouncements, createAnnouncement, deleteAnnouncement } from '../api
 import useMediaQuery from '../hooks/useMediaQuery'
 import { canImmerse, SceneBoundary } from '../three/gate'
 import { injectGaramond } from '../utils/fonts'
-import { rgba, darken, isLight } from '../utils/color'
+import { rgba, darken, isLight, authorTheme, authorThemeVars } from '../utils/color'
 import { safeHref } from '../utils/url'
 
 // three.js only downloads when the immersive page actually renders
@@ -211,16 +211,16 @@ function CallingCard({ href, label, value, icon }) {
   return (
     <a href={safeHref(href)} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
       display: 'flex', alignItems: 'center', gap: 16, padding: '20px 22px', borderRadius: 14, textDecoration: 'none',
-      background: 'linear-gradient(165deg, rgba(22,28,52,0.74) 0%, rgba(8,10,20,0.88) 100%)',
-      border: `1px solid ${hov ? 'rgba(217,181,106,0.55)' : 'rgba(217,181,106,0.2)'}`,
-      boxShadow: hov ? '0 22px 50px rgba(0,0,0,0.5), 0 0 40px rgba(217,181,106,0.12)' : '0 12px 30px rgba(0,0,0,0.35)',
+      background: 'linear-gradient(165deg, rgba(var(--au-deep-rgb, 20,26,48),0.74) 0%, rgba(var(--au-deeper-rgb, 8,10,20),0.88) 100%)',
+      border: `1px solid ${hov ? 'rgba(var(--au-gold-rgb, 217,181,106),0.55)' : 'rgba(var(--au-gold-rgb, 217,181,106),0.2)'}`,
+      boxShadow: hov ? '0 22px 50px rgba(0,0,0,0.5), 0 0 40px rgba(var(--au-gold-rgb, 217,181,106),0.12)' : '0 12px 30px rgba(0,0,0,0.35)',
       backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
       transform: hov ? 'translateY(-3px)' : 'none', transition: 'all 0.3s ease',
     }}>
       <span style={{
         width: 46, height: 46, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'radial-gradient(circle at 35% 30%, #f6dc98 0%, #c99a48 55%, #7a5418 100%)',
-        boxShadow: hov ? '0 0 22px rgba(217,181,106,0.6)' : '0 0 12px rgba(217,181,106,0.25)', transition: 'box-shadow 0.3s',
+        boxShadow: hov ? '0 0 22px rgba(var(--au-gold-rgb, 217,181,106),0.6)' : '0 0 12px rgba(var(--au-gold-rgb, 217,181,106),0.25)', transition: 'box-shadow 0.3s',
       }}>
         {icon === 'mail' ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a2608" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -229,7 +229,7 @@ function CallingCard({ href, label, value, icon }) {
         )}
       </span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontFamily: "'Lora', serif", fontSize: '0.6rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: '#d9b56a', marginBottom: 4 }}>{label}</span>
+        <span style={{ display: 'block', fontFamily: "'Lora', serif", fontSize: '0.6rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--au-gold, #d9b56a)', marginBottom: 4 }}>{label}</span>
         <span style={{ display: 'block', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.02rem', fontWeight: 600, color: hov ? '#fbf3df' : '#f5f0e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
       </span>
     </a>
@@ -251,7 +251,7 @@ const ShelfCard = memo(function ShelfCard({ book, isEditMode, onEdit, onDelete, 
       style={{
         // No background or blur over the stage: the 3D book renders *behind* this card
         position: 'relative', borderRadius: 16, overflow: 'hidden',
-        border: `1px solid ${hovered ? rgba(accent, 0.5) : 'rgba(217,181,106,0.16)'}`,
+        border: `1px solid ${hovered ? rgba(accent, 0.5) : 'rgba(var(--au-gold-rgb, 217,181,106),0.16)'}`,
         boxShadow: hovered ? `0 24px 60px rgba(0,0,0,0.4), 0 0 40px ${rgba(accent, 0.16)}` : '0 14px 40px rgba(0,0,0,0.3)',
         transform: hovered ? 'translateY(-4px)' : 'none',
         transition: 'all 0.3s ease', cursor: isEditMode ? 'default' : 'pointer',
@@ -262,29 +262,29 @@ const ShelfCard = memo(function ShelfCard({ book, isEditMode, onEdit, onDelete, 
         height: 250, position: 'relative',
         background: `radial-gradient(ellipse at 50% 85%, ${rgba(accent, 0.22)} 0%, transparent 65%)`,
       }}>
-        <span aria-hidden style={{ position: 'absolute', left: '20%', right: '20%', bottom: 14, height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.5), transparent)' }} />
+        <span aria-hidden style={{ position: 'absolute', left: '20%', right: '20%', bottom: 14, height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--au-gold-rgb, 217,181,106),0.5), transparent)' }} />
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {book.new_release && (
             <span style={{ background: accent, color: light ? '#1a1410' : '#f5f0e8', padding: '3px 9px', borderRadius: 999, fontSize: '0.6rem', fontFamily: "'Lora', serif", fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>New</span>
           )}
           {book.featured && !book.new_release && (
-            <span style={{ background: 'rgba(217,181,106,0.12)', color: '#e8cf96', padding: '3px 9px', borderRadius: 999, fontSize: '0.6rem', fontFamily: "'Lora', serif", border: '1px solid rgba(217,181,106,0.35)' }}>Featured</span>
+            <span style={{ background: 'rgba(var(--au-gold-rgb, 217,181,106),0.12)', color: 'var(--au-gold-light, #ecd08f)', padding: '3px 9px', borderRadius: 999, fontSize: '0.6rem', fontFamily: "'Lora', serif", border: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.35)' }}>Featured</span>
           )}
         </div>
         {isEditMode && (
           <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6, opacity: hovered ? 1 : 0, transition: 'opacity 0.2s' }}>
-            <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ background: 'rgba(14,18,34,0.9)', border: `1px solid ${rgba(accent, 0.4)}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#e8dcc0' }}>✎</button>
-            <button onClick={e => { e.stopPropagation(); onDelete(book) }} style={{ background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(220,90,70,0.45)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#f08a70' }}>✕</button>
+            <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ background: 'rgba(var(--au-deep-rgb, 20,26,48),0.9)', border: `1px solid ${rgba(accent, 0.4)}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#e8dcc0' }}>✎</button>
+            <button onClick={e => { e.stopPropagation(); onDelete(book) }} style={{ background: 'rgba(var(--au-deep-rgb, 20,26,48),0.9)', border: '1px solid rgba(220,90,70,0.45)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.7rem', color: '#f08a70' }}>✕</button>
           </div>
         )}
       </div>
 
       <div style={{
-        padding: '18px 20px 20px', borderTop: '1px solid rgba(217,181,106,0.12)',
-        background: 'linear-gradient(170deg, rgba(20,26,48,0.72) 0%, rgba(8,10,20,0.86) 100%)',
+        padding: '18px 20px 20px', borderTop: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.12)',
+        background: 'linear-gradient(170deg, rgba(var(--au-deep-rgb, 20,26,48),0.72) 0%, rgba(var(--au-deeper-rgb, 8,10,20),0.86) 100%)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
       }}>
-        <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.64rem', color: '#d9b56a', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.64rem', color: 'var(--au-gold, #d9b56a)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 6 }}>
           {book.book_type}{book.genre ? ` · ${book.genre}` : ''}
         </div>
         <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.08rem', color: '#f5f0e8', margin: '0 0 6px', lineHeight: 1.3, fontWeight: 700 }}>{book.title}</h3>
@@ -577,6 +577,9 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
     ? `linear-gradient(160deg, ${darken(heroAccent, 0.72)} 0%, ${darken(heroAccent, 0.52)} 50%, #1a1410 100%)`
     : 'linear-gradient(160deg, #2c1f0e 0%, #3d2b18 45%, #4a3520 100%)', [heroAccent, newRelease?.theme_color])
   const authorDisplayName = profile?.name?.trim() === 'Vishnu' ? 'Vishnu Vyas' : (profile?.name || 'Vishnu Vyas')
+  // The night sky takes its colours from the hero book (see utils/color authorTheme)
+  const theme = useMemo(() => authorTheme(newRelease?.theme_color), [newRelease?.theme_color])
+  const themeVars = useMemo(() => authorThemeVars(theme), [theme])
 
   // Push URL when opening a book, pop it when going back
   const openBook = (book, { replace = false } = {}) => {
@@ -623,7 +626,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
   const innerMax = { maxWidth: 1080, margin: '0 auto' }
 
   return (
-    <div style={{ fontFamily: "'Lora', Georgia, serif", background: immersive ? '#04060d' : '#f5f0e8', minHeight: '100vh', color: '#3d2e1a' }}>
+    <div style={{ fontFamily: "'Lora', Georgia, serif", background: immersive ? 'var(--au-bg, #04060d)' : '#f5f0e8', minHeight: '100vh', color: '#3d2e1a', ...(immersive ? themeVars : {}) }}>
       <AuthorAdminBanner />
       <AuthorNavbar
         adminOffset={adminOffset}
@@ -638,7 +641,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
       {immersive && !loading && (
         <SceneBoundary onFail={() => setSceneFailed(true)}>
           <Suspense fallback={null}>
-            <AuthorExperience books={books} newRelease={newRelease} featured={featured}
+            <AuthorExperience books={books} newRelease={newRelease} featured={featured} theme={theme}
               anchors={anchors} isMobile={isMobile} onReady={onSceneReady} />
           </Suspense>
         </SceneBoundary>
@@ -826,18 +829,18 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
             <div style={{ position: 'relative', flex: '1 1 260px' }}>
               <svg style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b5c45" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search titles, descriptions…"
-                style={{ width: '100%', padding: '10px 14px 10px 38px', background: immersive ? 'rgba(14,18,34,0.7)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.85rem', color: immersive ? '#f5f0e8' : '#3d2e1a', outline: 'none', boxSizing: 'border-box', backdropFilter: immersive ? 'blur(6px)' : undefined }}
+                style={{ width: '100%', padding: '10px 14px 10px 38px', background: immersive ? 'rgba(var(--au-deep-rgb, 20,26,48),0.7)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.85rem', color: immersive ? '#f5f0e8' : '#3d2e1a', outline: 'none', boxSizing: 'border-box', backdropFilter: immersive ? 'blur(6px)' : undefined }}
                 onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.6)'}
                 onBlur={e => e.target.style.borderColor = 'rgba(201,168,76,0.25)'} />
             </div>
             {allTypes.length > 1 && (
-              <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '10px 14px', background: immersive ? 'rgba(14,18,34,0.85)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: immersive ? '#e8dcc0' : '#6b5c45', cursor: 'pointer', outline: 'none' }}>
+              <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '10px 14px', background: immersive ? 'rgba(var(--au-deep-rgb, 20,26,48),0.85)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: immersive ? '#e8dcc0' : '#6b5c45', cursor: 'pointer', outline: 'none' }}>
                 <option value="">All types</option>
                 {allTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
             {allGenres.length > 1 && (
-              <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} style={{ padding: '10px 14px', background: immersive ? 'rgba(14,18,34,0.85)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: immersive ? '#e8dcc0' : '#6b5c45', cursor: 'pointer', outline: 'none' }}>
+              <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} style={{ padding: '10px 14px', background: immersive ? 'rgba(var(--au-deep-rgb, 20,26,48),0.85)' : '#fdf8f0', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, fontFamily: "'Lora', serif", fontSize: '0.82rem', color: immersive ? '#e8dcc0' : '#6b5c45', cursor: 'pointer', outline: 'none' }}>
                 <option value="">All genres</option>
                 {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -942,7 +945,7 @@ export default function AuthorPage({ onModeChange, initialBookSlug = null, onNav
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: isMobile ? '20px' : '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: immersive ? 'rgba(4,6,13,0.85)' : '#1a1410' }}>
+      <footer style={{ borderTop: '1px solid rgba(201,168,76,0.15)', padding: isMobile ? '20px' : '20px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, background: immersive ? 'rgba(var(--au-deeper-rgb, 8,10,20),0.85)' : '#1a1410' }}>
         <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', fontStyle: 'italic' }}>
           © {new Date().getFullYear()} {authorDisplayName} — All rights reserved
         </div>
@@ -1035,7 +1038,7 @@ function FeaturedSlideshow({ books, isEditMode, onManage, onView, immersive = fa
   const isMobile = useMediaQuery(900)
   // Night palette over the 3D sky; parchment otherwise
   const P = immersive
-    ? { title: '#f5f0e8', sub: 'rgba(245,240,232,0.6)', body: 'rgba(245,240,232,0.72)', meta: '#d9b56a', chipText: 'rgba(245,240,232,0.7)', btnBg: 'rgba(14,18,34,0.85)', faint: 'rgba(245,240,232,0.2)' }
+    ? { title: '#f5f0e8', sub: 'rgba(245,240,232,0.6)', body: 'rgba(245,240,232,0.72)', meta: 'var(--au-gold, #d9b56a)', chipText: 'rgba(245,240,232,0.7)', btnBg: 'rgba(var(--au-deep-rgb, 20,26,48),0.85)', faint: 'rgba(245,240,232,0.2)' }
     : { title: '#3d2e1a', sub: '#9a8060', body: '#6b5c45', meta: '#b09070', chipText: '#9a8060', btnBg: 'rgba(245,240,232,0.9)', faint: 'rgba(61,46,26,0.2)' }
   const [idx, setIdx]           = useState(0)
   const [phase, setPhase]       = useState('in')   // 'in' | 'out'
@@ -1383,13 +1386,13 @@ function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
               {/* Photo frame (immersive: arched gold portrait window) */}
               <div style={{ position: 'relative' }}>
-                {immersive && <span aria-hidden style={{ position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)', color: '#ecd08f', fontSize: '1.1rem', textShadow: '0 0 14px rgba(236,208,143,0.9)', zIndex: 2 }}>✦</span>}
+                {immersive && <span aria-hidden style={{ position: 'absolute', top: -26, left: '50%', transform: 'translateX(-50%)', color: 'var(--au-gold-light, #ecd08f)', fontSize: '1.1rem', textShadow: '0 0 14px rgba(var(--au-gold-light-rgb, 236,208,143),0.9)', zIndex: 2 }}>✦</span>}
                 {/* Outer ornamental frame */}
                 <div style={immersive ? {
                   position: 'absolute', inset: -12, borderRadius: '160px 160px 18px 18px',
-                  border: '1px solid rgba(217,181,106,0.35)',
-                  background: 'radial-gradient(ellipse at 50% 20%, rgba(217,181,106,0.12) 0%, transparent 70%)',
-                  boxShadow: '0 0 70px rgba(217,181,106,0.14)',
+                  border: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.35)',
+                  background: 'radial-gradient(ellipse at 50% 20%, rgba(var(--au-gold-rgb, 217,181,106),0.12) 0%, transparent 70%)',
+                  boxShadow: '0 0 70px rgba(var(--au-gold-rgb, 217,181,106),0.14)',
                 } : {
                   position: 'absolute', inset: -12,
                   border: '1px solid rgba(201,168,76,0.2)',
@@ -1416,8 +1419,8 @@ function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) 
                     borderRadius: immersive ? '150px 150px 12px 12px' : 12,
                     overflow: 'hidden',
                     position: 'relative',
-                    border: immersive ? `1.5px solid rgba(217,181,106,${photoDrag ? '1' : '0.7'})` : `2px solid rgba(201,168,76,${photoDrag ? '0.7' : '0.2'})`,
-                    boxShadow: immersive ? '0 30px 70px rgba(0,0,0,0.55), inset 0 0 0 4px rgba(4,6,13,0.55)' : 'none',
+                    border: immersive ? `1.5px solid rgba(var(--au-gold-rgb, 217,181,106),${photoDrag ? '1' : '0.7'})` : `2px solid rgba(201,168,76,${photoDrag ? '0.7' : '0.2'})`,
+                    boxShadow: immersive ? '0 30px 70px rgba(0,0,0,0.55), inset 0 0 0 4px rgba(var(--au-deeper-rgb, 8,10,20),0.55)' : 'none',
                     cursor: isEditMode && !avatar ? 'pointer' : 'default',
                     transition: 'border-color 0.2s',
                     background: '#1a1006',
@@ -1430,7 +1433,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) 
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
                       {/* Subtle vignette overlay */}
-                      <div style={{ position: 'absolute', inset: 0, background: immersive ? 'linear-gradient(to top, rgba(4,6,13,0.55) 0%, transparent 45%), radial-gradient(ellipse at 50% 0%, rgba(236,208,143,0.12) 0%, transparent 60%)' : 'linear-gradient(to top, rgba(26,16,6,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
+                      <div style={{ position: 'absolute', inset: 0, background: immersive ? 'linear-gradient(to top, rgba(var(--au-deeper-rgb, 8,10,20),0.55) 0%, transparent 45%), radial-gradient(ellipse at 50% 0%, rgba(var(--au-gold-light-rgb, 236,208,143),0.12) 0%, transparent 60%)' : 'linear-gradient(to top, rgba(26,16,6,0.5) 0%, transparent 50%)', pointerEvents: 'none' }} />
                     </>
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -1467,14 +1470,14 @@ function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) 
                 ? { display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', maxWidth: 260, marginTop: 8 }
                 : { display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240 }}>
                 {profile?.goodreads_url && (
-                  <a href={safeHref(profile.goodreads_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: immersive ? '#ecd08f' : 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: immersive ? '7px 16px' : '7px 14px', border: `1px solid ${immersive ? 'rgba(217,181,106,0.4)' : 'rgba(201,168,76,0.12)'}`, borderRadius: immersive ? 999 : 6, transition: 'all 0.2s' }}
+                  <a href={safeHref(profile.goodreads_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: immersive ? 'var(--au-gold-light, #ecd08f)' : 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: immersive ? '7px 16px' : '7px 14px', border: `1px solid ${immersive ? 'rgba(var(--au-gold-rgb, 217,181,106),0.4)' : 'rgba(201,168,76,0.12)'}`, borderRadius: immersive ? 999 : 6, transition: 'all 0.2s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'rgba(201,168,76,0.8)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = 'rgba(245,240,232,0.45)' }}>
                     Goodreads ↗
                   </a>
                 )}
                 {profile?.twitter_url && (
-                  <a href={safeHref(profile.twitter_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: immersive ? '#ecd08f' : 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: immersive ? '7px 16px' : '7px 14px', border: `1px solid ${immersive ? 'rgba(217,181,106,0.4)' : 'rgba(201,168,76,0.12)'}`, borderRadius: immersive ? 999 : 6, transition: 'all 0.2s' }}
+                  <a href={safeHref(profile.twitter_url)} target="_blank" rel="noreferrer" style={{ fontFamily: "'Lora', serif", fontSize: '0.75rem', color: immersive ? 'var(--au-gold-light, #ecd08f)' : 'rgba(245,240,232,0.45)', textDecoration: 'none', textAlign: 'center', padding: immersive ? '7px 16px' : '7px 14px', border: `1px solid ${immersive ? 'rgba(var(--au-gold-rgb, 217,181,106),0.4)' : 'rgba(201,168,76,0.12)'}`, borderRadius: immersive ? 999 : 6, transition: 'all 0.2s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.4)'; e.currentTarget.style.color = 'rgba(201,168,76,0.8)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.12)'; e.currentTarget.style.color = 'rgba(245,240,232,0.45)' }}>
                     Twitter / X ↗
@@ -1505,8 +1508,8 @@ function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) 
                 {/* Signature (immersive) */}
                 {immersive && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 30 }}>
-                    <span style={{ width: 46, height: 1, background: 'linear-gradient(90deg, transparent, #d9b56a)' }} />
-                    <span style={{ fontFamily: "'EB Garamond', Garamond, Georgia, serif", fontStyle: 'italic', fontSize: '1.45rem', color: '#ecd08f', textShadow: '0 0 20px rgba(236,208,143,0.3)' }}>{name}</span>
+                    <span style={{ width: 46, height: 1, background: 'linear-gradient(90deg, transparent, var(--au-gold, #d9b56a))' }} />
+                    <span style={{ fontFamily: "'EB Garamond', Garamond, Georgia, serif", fontStyle: 'italic', fontSize: '1.45rem', color: 'var(--au-gold-light, #ecd08f)', textShadow: '0 0 20px rgba(var(--au-gold-light-rgb, 236,208,143),0.3)' }}>{name}</span>
                   </div>
                 )}
 
@@ -1567,7 +1570,7 @@ function AuthorBioSection({ profile, isEditMode, onUpdate, immersive = false }) 
       </div>
       {immersive && <style>{`
         .bio-night::first-letter { float: left; font-family: 'Playfair Display', Georgia, serif; font-weight: 700;
-          font-size: 4.2em; line-height: 0.8; padding: 0.06em 0.12em 0 0; color: #d9b56a; text-shadow: 0 0 22px rgba(217,181,106,0.5); }
+          font-size: 4.2em; line-height: 0.8; padding: 0.06em 0.12em 0 0; color: var(--au-gold, #d9b56a); text-shadow: 0 0 22px rgba(var(--au-gold-rgb, 217,181,106),0.5); }
       `}</style>}
     </section>
   )
@@ -1596,8 +1599,8 @@ function ComingSoonSection({ books, isEditMode, onAdd, onEdit, onDelete, onView,
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', alignItems: 'end', gap: 16, marginBottom: 64 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-              <div style={{ width: 28, height: 1, background: 'rgba(201,168,76,0.4)' }} />
-              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.63rem', color: '#c9a84c', letterSpacing: '0.24em', textTransform: 'uppercase', fontStyle: 'italic' }}>On the Horizon</span>
+              <div style={{ width: 28, height: 1, background: 'rgba(var(--au-gold-rgb, 201,168,76),0.4)' }} />
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.63rem', color: 'var(--au-gold, #c9a84c)', letterSpacing: '0.24em', textTransform: 'uppercase', fontStyle: 'italic' }}>On the Horizon</span>
             </div>
             <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.8rem, 3vw, 2.8rem)', fontWeight: 900, color: '#f5f0e8', margin: '0 0 10px', letterSpacing: '-0.01em', textShadow: '0 2px 20px rgba(201,168,76,0.1)' }}>Coming Soon</h2>
             <p style={{ fontFamily: "'Lora', serif", fontStyle: 'italic', color: 'rgba(245,240,232,0.4)', fontSize: '0.88rem', margin: 0 }}>
@@ -1781,7 +1784,7 @@ const SoonCard = memo(function SoonCard({ book, index, isEditMode, onView, onEdi
         position: 'relative', display: 'grid',
         gridTemplateColumns: isMobile ? '1fr' : '280px 1fr',
         borderRadius: 18, overflow: 'hidden', cursor: 'pointer', marginBottom: 26,
-        border: `1px solid ${hovered ? rgba(accent, 0.5) : 'rgba(217,181,106,0.16)'}`,
+        border: `1px solid ${hovered ? rgba(accent, 0.5) : 'rgba(var(--au-gold-rgb, 217,181,106),0.16)'}`,
         boxShadow: hovered ? `0 26px 70px rgba(0,0,0,0.45), 0 0 50px ${rgba(accent, 0.14)}` : '0 14px 40px rgba(0,0,0,0.3)',
         transform: hovered ? 'translateY(-4px)' : 'none',
         transition: 'all 0.35s ease',
@@ -1792,7 +1795,7 @@ const SoonCard = memo(function SoonCard({ book, index, isEditMode, onView, onEdi
         position: 'relative', height: isMobile ? 290 : 'auto', minHeight: isMobile ? 0 : 320,
         background: `radial-gradient(ellipse at 50% 60%, ${rgba(accent, 0.2)} 0%, transparent 62%)`,
       }}>
-        <span aria-hidden style={{ position: 'absolute', left: 16, bottom: 10, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '3.4rem', fontWeight: 900, lineHeight: 1, color: 'rgba(217,181,106,0.12)' }}>
+        <span aria-hidden style={{ position: 'absolute', left: 16, bottom: 10, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '3.4rem', fontWeight: 900, lineHeight: 1, color: 'rgba(var(--au-gold-rgb, 217,181,106),0.12)' }}>
           {String(index + 1).padStart(2, '0')}
         </span>
       </div>
@@ -1800,25 +1803,25 @@ const SoonCard = memo(function SoonCard({ book, index, isEditMode, onView, onEdi
       <div style={{
         position: 'relative', padding: isMobile ? '24px 22px 22px' : '38px 40px 32px',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 20,
-        background: 'linear-gradient(160deg, rgba(20,26,48,0.72) 0%, rgba(8,10,20,0.86) 100%)',
+        background: 'linear-gradient(160deg, rgba(var(--au-deep-rgb, 20,26,48),0.72) 0%, rgba(var(--au-deeper-rgb, 8,10,20),0.86) 100%)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-        borderLeft: isMobile ? 'none' : '1px solid rgba(217,181,106,0.12)',
-        borderTop: isMobile ? '1px solid rgba(217,181,106,0.12)' : 'none',
+        borderLeft: isMobile ? 'none' : '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.12)',
+        borderTop: isMobile ? '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.12)' : 'none',
       }}>
-        <span aria-hidden style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.55), transparent)' }} />
+        <span aria-hidden style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--au-gold-rgb, 217,181,106),0.55), transparent)' }} />
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'Lora', serif", fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#e8cf96' }}>
-              <span className="soon-pulse" style={{ width: 7, height: 7, borderRadius: '50%', background: '#d9b56a', boxShadow: '0 0 10px rgba(217,181,106,0.9)' }} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: "'Lora', serif", fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--au-gold-light, #ecd08f)' }}>
+              <span className="soon-pulse" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--au-gold, #d9b56a)', boxShadow: '0 0 10px rgba(var(--au-gold-rgb, 217,181,106),0.9)' }} />
               Being written
             </span>
             {book.genre && <span style={{ fontFamily: "'Lora', serif", fontSize: '0.66rem', fontStyle: 'italic', color: 'rgba(245,240,232,0.45)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{book.genre}</span>}
           </div>
           <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 'clamp(1.5rem, 2.6vw, 2.1rem)', fontWeight: 900, color: '#f5f0e8', margin: '0 0 12px', lineHeight: 1.12 }}>{book.title}</h3>
           <div aria-hidden style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-            <span style={{ width: 30, height: 1, background: '#d9b56a' }} />
-            <span style={{ width: 6, height: 6, transform: 'rotate(45deg)', background: '#d9b56a' }} />
-            <span style={{ width: 14, height: 1, background: 'rgba(217,181,106,0.4)' }} />
+            <span style={{ width: 30, height: 1, background: 'var(--au-gold, #d9b56a)' }} />
+            <span style={{ width: 6, height: 6, transform: 'rotate(45deg)', background: 'var(--au-gold, #d9b56a)' }} />
+            <span style={{ width: 14, height: 1, background: 'rgba(var(--au-gold-rgb, 217,181,106),0.4)' }} />
           </div>
           {desc && (
             <p style={{ fontFamily: "'EB Garamond', Garamond, Georgia, serif", fontStyle: 'italic', fontSize: '1.08rem', color: 'rgba(245,236,214,0.72)', lineHeight: 1.7, margin: 0, maxWidth: 560 }}>
@@ -1831,18 +1834,18 @@ const SoonCard = memo(function SoonCard({ book, index, isEditMode, onView, onEdi
           {book.estimated_release ? (
             <span style={{
               display: 'inline-flex', alignItems: 'baseline', gap: 10, padding: '7px 16px', borderRadius: 999,
-              border: '1px solid rgba(217,181,106,0.45)', background: 'linear-gradient(90deg, rgba(217,181,106,0.14), rgba(217,181,106,0.04))',
+              border: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.45)', background: 'linear-gradient(90deg, rgba(var(--au-gold-rgb, 217,181,106),0.14), rgba(var(--au-gold-rgb, 217,181,106),0.04))',
             }}>
-              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.58rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(232,207,150,0.75)' }}>Expected</span>
-              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '0.9rem', fontWeight: 700, color: '#f3dca4' }}>{book.estimated_release}</span>
+              <span style={{ fontFamily: "'Lora', serif", fontSize: '0.58rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(var(--au-gold-light-rgb, 236,208,143),0.75)' }}>Expected</span>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '0.9rem', fontWeight: 700, color: 'var(--au-gold-light, #ecd08f)' }}>{book.estimated_release}</span>
             </span>
           ) : <span />}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: hovered ? '#e8cf96' : 'rgba(217,181,106,0.6)', transition: 'color 0.25s' }}>Follow its making →</span>
+            <span style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: hovered ? 'var(--au-gold-light, #ecd08f)' : 'rgba(var(--au-gold-rgb, 217,181,106),0.6)', transition: 'color 0.25s' }}>Follow its making →</span>
             {isEditMode && (
               <>
-                <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ padding: '5px 12px', borderRadius: 6, background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(217,181,106,0.3)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: '#e8dcc0', cursor: 'pointer' }}>✎ Edit</button>
-                <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${book.title}"?`)) onDelete(book) }} style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(220,90,70,0.45)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: '#f08a70', cursor: 'pointer' }}>✕</button>
+                <button onClick={e => { e.stopPropagation(); onEdit(book) }} style={{ padding: '5px 12px', borderRadius: 6, background: 'rgba(var(--au-deep-rgb, 20,26,48),0.9)', border: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.3)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: '#e8dcc0', cursor: 'pointer' }}>✎ Edit</button>
+                <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${book.title}"?`)) onDelete(book) }} style={{ padding: '5px 10px', borderRadius: 6, background: 'rgba(var(--au-deep-rgb, 20,26,48),0.9)', border: '1px solid rgba(220,90,70,0.45)', fontFamily: "'Lora', serif", fontSize: '0.68rem', color: '#f08a70', cursor: 'pointer' }}>✕</button>
               </>
             )}
           </div>
@@ -1863,7 +1866,7 @@ const AMBER_BORDER = 'rgba(232,160,48,0.28)'
 const ANN_BG       = '#1c1408'   // very dark warm ink for the section bg
 // Palettes: warm amber on the classic page, starlight gold over the 3D sky
 const ANN_WARM  = { main: AMBER, dim: AMBER_DIM, border: AMBER_BORDER, panel: '#221a0a', field: '#1a1208' }
-const ANN_NIGHT = { main: '#d9b56a', dim: 'rgba(217,181,106,0.10)', border: 'rgba(217,181,106,0.26)', panel: 'rgba(12,16,32,0.88)', field: 'rgba(6,9,20,0.9)' }
+const ANN_NIGHT = { main: 'var(--au-gold, #d9b56a)', dim: 'rgba(var(--au-gold-rgb, 217,181,106),0.10)', border: 'rgba(var(--au-gold-rgb, 217,181,106),0.26)', panel: 'rgba(var(--au-deep-rgb, 20,26,48),0.88)', field: 'rgba(var(--au-deeper-rgb, 8,10,20),0.9)' }
 
 function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDelete, immersive = false }) {
   const isMobile = useMediaQuery(900)
@@ -1942,7 +1945,7 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
                 cursor: 'pointer', transition: 'all 0.2s',
                 display: 'inline-flex', alignItems: 'center', gap: 8,
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = immersive ? 'rgba(217,181,106,0.18)' : 'rgba(232,160,48,0.18)'; e.currentTarget.style.borderColor = immersive ? 'rgba(217,181,106,0.5)' : 'rgba(232,160,48,0.5)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = immersive ? 'rgba(var(--au-gold-rgb, 217,181,106),0.18)' : 'rgba(232,160,48,0.18)'; e.currentTarget.style.borderColor = immersive ? 'rgba(var(--au-gold-rgb, 217,181,106),0.5)' : 'rgba(232,160,48,0.5)' }}
               onMouseLeave={e => { e.currentTarget.style.background = A.dim; e.currentTarget.style.borderColor = A.border }}
             >
               {!immersive && <AnnAlertIcon size={14} color={A.main} />}
@@ -1965,7 +1968,7 @@ function AnnouncementsSection({ announcements, isEditMode, onView, onAdd, onDele
               color: '#f5f0e8', marginBottom: 20,
               display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <AnnAlertIcon size={16} color={A.main} /> New Announcement
+              {!immersive && <AnnAlertIcon size={16} color={A.main} />} New Announcement
             </div>
 
             {/* Title */}
@@ -2188,22 +2191,22 @@ function LetterCard({ ann, isEditMode, onView, onDelete }) {
       style={{
         position: 'relative', overflow: 'hidden', cursor: 'pointer',
         padding: '28px 26px 24px', borderRadius: 14,
-        background: 'linear-gradient(165deg, rgba(22,28,52,0.74) 0%, rgba(8,10,20,0.88) 100%)',
-        border: `1px solid ${hovered ? 'rgba(217,181,106,0.5)' : 'rgba(217,181,106,0.18)'}`,
-        boxShadow: hovered ? '0 24px 60px rgba(0,0,0,0.5), 0 0 40px rgba(217,181,106,0.1)' : '0 12px 34px rgba(0,0,0,0.35)',
+        background: 'linear-gradient(165deg, rgba(var(--au-deep-rgb, 20,26,48),0.74) 0%, rgba(var(--au-deeper-rgb, 8,10,20),0.88) 100%)',
+        border: `1px solid ${hovered ? 'rgba(var(--au-gold-rgb, 217,181,106),0.5)' : 'rgba(var(--au-gold-rgb, 217,181,106),0.18)'}`,
+        boxShadow: hovered ? '0 24px 60px rgba(0,0,0,0.5), 0 0 40px rgba(var(--au-gold-rgb, 217,181,106),0.1)' : '0 12px 34px rgba(0,0,0,0.35)',
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         transform: hovered ? 'translateY(-4px)' : 'none', transition: 'all 0.3s ease',
       }}
     >
       {/* folded-letter corner + top hairline */}
-      <span aria-hidden style={{ position: 'absolute', top: 0, left: '12%', right: '12%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.55), transparent)' }} />
-      <div style={{ position: 'absolute', top: 18, right: 18, transform: hovered ? 'rotate(-12deg) scale(1.06)' : 'rotate(-6deg)', transition: 'transform 0.35s ease', filter: hovered ? 'drop-shadow(0 0 12px rgba(217,181,106,0.55))' : 'none' }}>
+      <span aria-hidden style={{ position: 'absolute', top: 0, left: '12%', right: '12%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--au-gold-rgb, 217,181,106),0.55), transparent)' }} />
+      <div style={{ position: 'absolute', top: 18, right: 18, transform: hovered ? 'rotate(-12deg) scale(1.06)' : 'rotate(-6deg)', transition: 'transform 0.35s ease', filter: hovered ? 'drop-shadow(0 0 12px rgba(var(--au-gold-rgb, 217,181,106),0.55))' : 'none' }}>
         <WaxSeal size={42} />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingRight: 56 }}>
-        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#d9b56a' }}>{date}</span>
-        {ann.pinned && <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', color: '#f3dca4', border: '1px solid rgba(217,181,106,0.4)', borderRadius: 999, padding: '2px 8px' }}>★ Pinned</span>}
+        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.62rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--au-gold, #d9b56a)' }}>{date}</span>
+        {ann.pinned && <span style={{ fontFamily: "'Lora', serif", fontSize: '0.6rem', color: 'var(--au-gold-light, #ecd08f)', border: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.4)', borderRadius: 999, padding: '2px 8px' }}>★ Pinned</span>}
       </div>
       <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.28rem', fontWeight: 700, color: '#f5f0e8', lineHeight: 1.3, margin: '0 0 12px', paddingRight: 40 }}>{ann.title}</h3>
       {excerpt && (
@@ -2211,10 +2214,10 @@ function LetterCard({ ann, isEditMode, onView, onDelete }) {
           {excerpt}
         </p>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(217,181,106,0.14)', paddingTop: 14 }}>
-        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: hovered ? '#e8cf96' : 'rgba(217,181,106,0.65)', transition: 'color 0.2s' }}>Open the letter →</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.14)', paddingTop: 14 }}>
+        <span style={{ fontFamily: "'Lora', serif", fontSize: '0.78rem', fontStyle: 'italic', color: hovered ? 'var(--au-gold-light, #ecd08f)' : 'rgba(var(--au-gold-rgb, 217,181,106),0.65)', transition: 'color 0.2s' }}>Open the letter →</span>
         {isEditMode && (
-          <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${ann.title}"?`)) onDelete(ann.id) }} style={{ background: 'rgba(14,18,34,0.9)', border: '1px solid rgba(220,90,70,0.45)', color: '#f08a70', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: '0.68rem' }}>✕ Delete</button>
+          <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${ann.title}"?`)) onDelete(ann.id) }} style={{ background: 'rgba(var(--au-deep-rgb, 20,26,48),0.9)', border: '1px solid rgba(220,90,70,0.45)', color: '#f08a70', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: '0.68rem' }}>✕ Delete</button>
         )}
       </div>
     </div>

@@ -131,17 +131,17 @@ export default function LoginModal({ onClose, theme = 'dev' }) {
     >
       <div style={{
         width: 'min(390px, 100%)', boxSizing: 'border-box', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(165deg, rgba(22,28,52,0.94) 0%, rgba(6,8,18,0.97) 100%)',
-        border: '1px solid rgba(217,181,106,0.3)',
+        background: 'linear-gradient(165deg, rgba(var(--au-deep-rgb, 20,26,48),0.94) 0%, rgba(6,8,18,0.97) 100%)',
+        border: '1px solid rgba(var(--au-gold-rgb, 217,181,106),0.3)',
         borderRadius: 18,
         padding: '44px 36px 34px',
-        boxShadow: '0 40px 110px rgba(0,0,0,0.7), 0 0 60px rgba(217,181,106,0.08)',
+        boxShadow: '0 40px 110px rgba(0,0,0,0.7), 0 0 60px rgba(var(--au-gold-rgb, 217,181,106),0.08)',
         animation: 'slideUp 0.2s ease',
       }}>
-        <span aria-hidden style={{ position: 'absolute', top: 0, left: '12%', right: '12%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(217,181,106,0.7), transparent)' }} />
+        <span aria-hidden style={{ position: 'absolute', top: 0, left: '12%', right: '12%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--au-gold-rgb, 217,181,106),0.7), transparent)' }} />
 
         {/* Seal */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22, filter: 'drop-shadow(0 0 14px rgba(217,181,106,0.35))' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22, filter: 'drop-shadow(0 0 14px rgba(var(--au-gold-rgb, 217,181,106),0.35))' }}>
           <svg width="52" height="52" viewBox="0 0 48 48" aria-hidden>
             <defs>
               <radialGradient id="loginWax" cx="38%" cy="32%" r="70%">
@@ -156,7 +156,7 @@ export default function LoginModal({ onClose, theme = 'dev' }) {
 
         {/* Header */}
         <div style={{ marginBottom: 28, textAlign: 'center' }}>
-          <div style={{ fontSize: '0.64rem', color: '#d9b56a', letterSpacing: '0.26em', textTransform: 'uppercase', marginBottom: 10, fontStyle: 'italic' }}>
+          <div style={{ fontSize: '0.64rem', color: 'var(--au-gold, #d9b56a)', letterSpacing: '0.26em', textTransform: 'uppercase', marginBottom: 10, fontStyle: 'italic' }}>
             Author's Desk
           </div>
           <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '1.5rem', color: '#f5f0e8', margin: 0, fontWeight: 700 }}>
@@ -178,7 +178,7 @@ export default function LoginModal({ onClose, theme = 'dev' }) {
           style={{
             width: '100%', padding: '13px 16px',
             background: 'rgba(4,6,14,0.85)',
-            border: `1px solid ${error ? 'rgba(240,120,100,0.6)' : 'rgba(217,181,106,0.3)'}`,
+            border: `1px solid ${error ? 'rgba(240,120,100,0.6)' : 'rgba(var(--au-gold-rgb, 217,181,106),0.3)'}`,
             borderRadius: 10,
             fontFamily: "'Lora', Georgia, serif", textAlign: 'center',
             fontSize: '0.95rem', color: '#f5f0e8',
@@ -187,8 +187,8 @@ export default function LoginModal({ onClose, theme = 'dev' }) {
             letterSpacing: '0.3em',
             transition: 'border-color 0.2s, box-shadow 0.2s',
           }}
-          onFocus={e => { e.target.style.borderColor = 'rgba(217,181,106,0.75)'; e.target.style.boxShadow = '0 0 0 3px rgba(217,181,106,0.12)' }}
-          onBlur={e => { e.target.style.borderColor = error ? 'rgba(240,120,100,0.6)' : 'rgba(217,181,106,0.3)'; e.target.style.boxShadow = 'none' }}
+          onFocus={e => { e.target.style.borderColor = 'rgba(var(--au-gold-rgb, 217,181,106),0.75)'; e.target.style.boxShadow = '0 0 0 3px rgba(var(--au-gold-rgb, 217,181,106),0.12)' }}
+          onBlur={e => { e.target.style.borderColor = error ? 'rgba(240,120,100,0.6)' : 'rgba(var(--au-gold-rgb, 217,181,106),0.3)'; e.target.style.boxShadow = 'none' }}
         />
 
         {error && (
@@ -212,12 +212,12 @@ export default function LoginModal({ onClose, theme = 'dev' }) {
           </button>
           <button onClick={handleSubmit} disabled={loading} style={{
             flex: 2, padding: '11px',
-            background: loading ? 'rgba(217,181,106,0.45)' : 'linear-gradient(180deg, #ecd08f 0%, #c99a48 100%)',
+            background: loading ? 'rgba(var(--au-gold-rgb, 217,181,106),0.45)' : 'linear-gradient(180deg, var(--au-gold-light, #ecd08f) 0%, #c99a48 100%)',
             border: 'none',
             borderRadius: 8, cursor: loading ? 'wait' : 'pointer',
             fontFamily: "'Playfair Display', Georgia, serif",
             fontSize: '0.88rem', fontWeight: 700, color: '#1a1206',
-            boxShadow: '0 6px 22px rgba(217,181,106,0.25)',
+            boxShadow: '0 6px 22px rgba(var(--au-gold-rgb, 217,181,106),0.25)',
             transition: 'all 0.2s',
           }}>
             {loading ? 'Verifying…' : 'Enter the Desk'}

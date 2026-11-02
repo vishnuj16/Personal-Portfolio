@@ -6,9 +6,9 @@ Go + Gin + SQLite backend for a personal portfolio site with a secret admin mode
 
 | Layer | Technology |
 |---|---|
-| Language | Go 1.22 |
+| Language | Go 1.25 |
 | Router | [Gin](https://github.com/gin-gonic/gin) |
-| Database | SQLite via `go-sqlite3` |
+| Database | SQLite via `modernc.org/sqlite` (pure Go; WAL + foreign keys on) |
 | Auth | JWT (HS256) via `golang-jwt/jwt` |
 | CORS | `gin-contrib/cors` |
 | Config | `.env` via `godotenv` |
@@ -93,6 +93,19 @@ The JWT expires in **24 hours**. Refresh the page to re-authenticate.
 | DELETE | `/api/admin/education/:id` | Delete education |
 | POST | `/api/admin/upload` | Upload image file |
 | DELETE | `/api/admin/upload` | Delete uploaded file |
+| POST | `/api/admin/books/:id/reviews` | Add a review to a book |
+| POST | `/api/admin/books/:id/reviews/reorder` | Reorder a book's reviews (`{ "ids": [...] }`) |
+| PATCH | `/api/admin/reviews/:id` | Update a review |
+| DELETE | `/api/admin/reviews/:id` | Delete a review |
+
+`GET /api/books/:slug` includes the book's `reviews`. The passkey endpoint is
+rate-limited per client IP (5 wrong attempts → escalating lockout, `429` + `Retry-After`).
+
+### Link previews
+
+Non-API routes serve the frontend's `index.html` with per-page Open Graph /
+Twitter tags injected server-side (`/book/:slug` uses the book's title, top
+review and cover).
 
 ---
 
@@ -103,7 +116,7 @@ The JWT expires in **24 hours**. Refresh the page to re-authenticate.
 | Field | Type | Description |
 |---|---|---|
 | `file` | File | Image (jpg, jpeg, png, webp, svg, gif, max 5MB) |
-| `bucket` | String | Subfolder: `skills`, `categories`, `projects`, `avatars`, `misc` |
+| `bucket` | String | One of `books`, `profile`, `avatars`, `projects`, `skills`, `categories`, `experiences`, `education`, `misc` (anything else is rejected) |
 
 Returns:
 ```json
@@ -112,7 +125,8 @@ Returns:
 
 Store the returned `url` as `image_url` in your skill/category/project.
 
-Uploaded files are served statically at `GET /uploads/**`.
+Uploaded files are served statically at `GET /uploads/**`, with a sandboxing
+`Content-Security-Policy` so an uploaded SVG can't run script.
 
 ---
 
@@ -175,13 +189,18 @@ Uploaded files are served statically at `GET /uploads/**`.
 │   └── main.go              # Entry point, router setup
 ├── internal/
 │   ├── auth/
-│   │   └── auth.go          # Passkey verify + JWT issue/parse
+│   │   └── auth.go          # Passkey verify (rate-limited) + JWT issue/parse
 │   ├── database/
 │   │   └── database.go      # SQLite init + migrations
 │   ├── handlers/
 │   │   ├── skills.go        # Categories + Skills CRUD
 │   │   ├── projects.go      # Projects CRUD
 │   │   ├── profile.go       # Profile / Experience / Education
+│   │   ├── books_handler.go # Books CRUD, featured / new release
+│   │   ├── reviews_handler.go # Book reviews
+│   │   ├── announcements_handler.go
+│   │   ├── meta.go          # index.html + link-preview tags
+│   │   ├── update.go        # Shared single-statement update / error mapping
 │   │   └── upload.go        # Image upload/delete
 │   ├── middleware/
 │   │   └── auth.go          # JWT guard middleware
@@ -203,3 +222,9 @@ Uploaded files are served statically at `GET /uploads/**`.
 - Serve behind a reverse proxy (nginx/caddy) with HTTPS
 - Back up `portfolio.db` regularly — it's your entire site content
 - Set `FRONTEND_ORIGIN` to your actual domain
+- Set `SITE_URL` (e.g. `https://byvishnu.in`) so link previews use absolute URLs
+- Behind a reverse proxy, set `TRUSTED_PROXIES` to the proxy's address so the
+  login rate limit sees real client IPs (otherwise everyone shares one limit)
+- SQLite runs in WAL mode: back up `portfolio.db` together with `portfolio.db-wal`
+  (or use `sqlite3 portfolio.db ".backup out.db"`)
+- `go test ./...` covers the login limiter, upload path checks and review validation

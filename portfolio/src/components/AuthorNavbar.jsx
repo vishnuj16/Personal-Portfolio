@@ -37,10 +37,10 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
       <nav style={{
         position: 'fixed', top: adminOffset, left: 0, right: 0, zIndex: 999,
         transition: 'all 0.4s ease',
-        background: scrolled ? (night ? 'rgba(5,8,18,0.7)' : 'rgba(245,240,232,0.97)') : 'transparent',
+        background: scrolled ? (night ? 'rgba(var(--au-deeper-rgb, 8,10,20),0.7)' : 'rgba(245,240,232,0.97)') : 'transparent',
         backdropFilter: scrolled ? 'blur(16px)' : 'none',
         WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
-        borderBottom: scrolled ? `1px solid ${night ? 'rgba(217,181,106,0.16)' : 'rgba(201,168,76,0.2)'}` : 'none',
+        borderBottom: scrolled ? `1px solid ${night ? 'rgba(var(--au-gold-rgb, 217,181,106),0.16)' : 'rgba(201,168,76,0.2)'}` : 'none',
         boxShadow: scrolled ? (night ? '0 1px 30px rgba(0,0,0,0.5)' : '0 1px 24px rgba(61,46,26,0.08)') : 'none',
         padding: isMobile ? '0 16px' : '0 48px',
       }}>
@@ -141,7 +141,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
                     letterSpacing: '0.02em',
                     cursor: 'pointer',
                   }}
-                  onMouseEnter={e => e.target.style.color = lightBar ? '#c9a84c' : (night ? '#e8cf96' : '#f5f0e8')}
+                  onMouseEnter={e => e.target.style.color = lightBar ? '#c9a84c' : (night ? 'var(--au-gold-light, #ecd08f)' : '#f5f0e8')}
                   onMouseLeave={e => e.target.style.color = lightBar ? '#6b5c45' : 'rgba(245,240,232,0.8)'}
                 >
                   {link.label}
@@ -170,7 +170,7 @@ export default function AuthorNavbar({ adminOffset, currentMode = 'author', onMo
             flexDirection: 'column',
             gap: 8,
             padding: '12px 16px 16px',
-            background: night ? 'rgba(5,8,18,0.86)' : 'rgba(245,240,232,0.82)',
+            background: night ? 'rgba(var(--au-deeper-rgb, 8,10,20),0.86)' : 'rgba(245,240,232,0.82)',
             backdropFilter: 'blur(26px) saturate(1.4)',
             WebkitBackdropFilter: 'blur(26px) saturate(1.4)',
             borderBottom: '1px solid rgba(201,168,76,0.16)',
@@ -240,7 +240,7 @@ function AnnouncementBell({ announcement, scrolled, onClick }) {
     if (onClick) onClick(announcement)
   }
 
-  const amber = '#e8a030'
+  const amber = 'var(--au-gold, #e8a030)'
   const textCol = scrolled ? '#3d2e1a' : '#f5f0e8'
 
   return (
@@ -249,15 +249,15 @@ function AnnouncementBell({ announcement, scrolled, onClick }) {
         onClick={handleOpen}
         title="Latest announcement"
         style={{
-          background: open ? 'rgba(232,160,48,0.12)' : 'transparent',
-          border: `1px solid ${open ? 'rgba(232,160,48,0.5)' : 'rgba(232,160,48,0.25)'}`,
+          background: open ? 'rgba(var(--au-gold-rgb, 232,160,48),0.12)' : 'transparent',
+          border: `1px solid ${open ? 'rgba(var(--au-gold-rgb, 232,160,48),0.5)' : 'rgba(var(--au-gold-rgb, 232,160,48),0.25)'}`,
           borderRadius: '50%', width: 34, height: 34,
           cursor: 'pointer', position: 'relative',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.2s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,160,48,0.12)'; e.currentTarget.style.borderColor = 'rgba(232,160,48,0.5)' }}
-        onMouseLeave={e => { if (!open) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(232,160,48,0.25)' } }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(var(--au-gold-rgb, 232,160,48),0.12)'; e.currentTarget.style.borderColor = 'rgba(var(--au-gold-rgb, 232,160,48),0.5)' }}
+        onMouseLeave={e => { if (!open) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(var(--au-gold-rgb, 232,160,48),0.25)' } }}
       >
         <BellIcon size={16} color={amber} />
         {!seen && (
@@ -275,17 +275,17 @@ function AnnouncementBell({ announcement, scrolled, onClick }) {
           position: 'absolute', top: 'calc(100% + 12px)', right: 0,
           width: 280, zIndex: 9999,
           background: '#1a1208',
-          border: '1px solid rgba(232,160,48,0.35)',
+          border: '1px solid rgba(var(--au-gold-rgb, 232,160,48),0.35)',
           borderRadius: 10,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,160,48,0.08)',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(var(--au-gold-rgb, 232,160,48),0.08)',
           animation: 'fadeInUp 0.18s ease',
           overflow: 'hidden',
         }}>
           {/* Header */}
           <div style={{
             padding: '10px 14px 8px',
-            background: 'rgba(232,160,48,0.07)',
-            borderBottom: '1px solid rgba(232,160,48,0.15)',
+            background: 'rgba(var(--au-gold-rgb, 232,160,48),0.07)',
+            borderBottom: '1px solid rgba(var(--au-gold-rgb, 232,160,48),0.15)',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <BellIcon size={12} color={amber} />
@@ -306,12 +306,12 @@ function AnnouncementBell({ announcement, scrolled, onClick }) {
               onClick={handleView}
               style={{
                 width: '100%', padding: '8px', borderRadius: 6, cursor: 'pointer',
-                background: 'rgba(232,160,48,0.12)', border: '1px solid rgba(232,160,48,0.35)',
+                background: 'rgba(var(--au-gold-rgb, 232,160,48),0.12)', border: '1px solid rgba(var(--au-gold-rgb, 232,160,48),0.35)',
                 color: amber, fontFamily: "'Lora', serif", fontSize: '0.78rem',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(232,160,48,0.22)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(232,160,48,0.12)'}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--au-gold-rgb, 232,160,48),0.22)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(var(--au-gold-rgb, 232,160,48),0.12)'}
             >
               Read announcement →
             </button>

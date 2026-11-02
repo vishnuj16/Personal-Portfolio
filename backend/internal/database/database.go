@@ -12,7 +12,8 @@ var DB *sql.DB
 
 func Init(path string) {
 	var err error
-	DB, err = sql.Open("sqlite", path+"?_foreign_keys=on&_journal_mode=WAL")
+	// modernc.org/sqlite only honours _pragma=… params; they run on every new connection.
+	DB, err = sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -190,6 +191,23 @@ func migrate() {
 		"ALTER TABLE books ADD COLUMN theme_color TEXT",
 		"ALTER TABLE books ADD COLUMN coming_soon INTEGER DEFAULT 0",
 		"ALTER TABLE books ADD COLUMN estimated_release TEXT",
+		"ALTER TABLE books ADD COLUMN opening_line TEXT",
+		// Curated reviews / praise shown on the book page
+		`CREATE TABLE IF NOT EXISTS book_reviews (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			book_id        INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+			quote          TEXT    NOT NULL,
+			reviewer       TEXT,
+			reviewer_title TEXT,
+			source         TEXT    NOT NULL DEFAULT 'other' CHECK(source IN ('amazon','goodreads','press','author','other')),
+			source_url     TEXT,
+			rating         INTEGER CHECK(rating IS NULL OR rating BETWEEN 1 AND 5),
+			starred        INTEGER NOT NULL DEFAULT 0,
+			sort_order     INTEGER NOT NULL DEFAULT 0,
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		"CREATE INDEX IF NOT EXISTS idx_book_reviews_book ON book_reviews(book_id, sort_order)",
 	}
 	for _, stmt := range columnMigrations {
 		if _, err := DB.Exec(stmt); err != nil {
@@ -197,6 +215,25 @@ func migrate() {
 			if !strings.Contains(err.Error(), "duplicate column name") {
 				log.Fatalf("Column migration failed: %v", err)
 			}
+		}
+	}
+
+	// Foreign keys were silently off before (wrong DSN syntax), so deletes left
+	// rows pointing at parents that no longer exist. Remove them; on a clean
+	// database these match nothing.
+	orphanCleanup := []string{
+		`DELETE FROM skills WHERE category_id NOT IN (SELECT id FROM skill_categories)`,
+		`DELETE FROM project_skills WHERE project_id NOT IN (SELECT id FROM projects) OR skill_id NOT IN (SELECT id FROM skills)`,
+		`DELETE FROM project_images WHERE project_id NOT IN (SELECT id FROM projects)`,
+		`DELETE FROM book_reviews WHERE book_id NOT IN (SELECT id FROM books)`,
+	}
+	for _, stmt := range orphanCleanup {
+		res, err := DB.Exec(stmt)
+		if err != nil {
+			log.Fatalf("Orphan cleanup failed: %v", err)
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			log.Printf("Removed %d orphaned row(s): %s", n, strings.Fields(stmt)[2])
 		}
 	}
 }

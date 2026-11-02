@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -47,10 +48,13 @@ func ListProjects(c *gin.Context) {
 	projects := []models.Project{}
 	for rows.Next() {
 		var p models.Project
-		rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Summary, &p.Description,
+		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Summary, &p.Description,
 			&p.CoverURL, &p.RepoURL, &p.LiveURL, &p.Status,
 			&p.Featured, &p.SortOrder, &p.StartedAt, &p.EndedAt,
-			&p.CreatedAt, &p.UpdatedAt)
+			&p.CreatedAt, &p.UpdatedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 		p.Skills = fetchProjectSkills(p.ID)
 		p.Images = fetchProjectImages(p.ID)
 		projects = append(projects, p)
@@ -117,25 +121,35 @@ func CreateProject(c *gin.Context) {
 	}
 	slug := models.Slugify(body.Title)
 
-	res, err := database.DB.Exec(`
+	tx, err := database.DB.Begin()
+	if writeErr(c, err) {
+		return
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
 		INSERT INTO projects (title, slug, summary, description, cover_url, repo_url, live_url,
 		                      status, featured, sort_order, started_at, ended_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		body.Title, slug, body.Summary, body.Description, body.CoverURL,
 		body.RepoURL, body.LiveURL, body.Status, body.Featured,
 		body.SortOrder, body.StartedAt, body.EndedAt)
-	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "project slug conflict or db error: " + err.Error()})
+	if writeErr(c, err) {
 		return
 	}
-
 	id, _ := res.LastInsertId()
 
-	// Create any inline new skills and collect their IDs
-	newIDs := createInlineSkills(body.NewSkills)
-	allSkillIDs := append(body.SkillIDs, newIDs...)
-	syncProjectSkills(id, allSkillIDs)
-
+	// Create any inline new skills and link everything
+	newIDs, err := createInlineSkills(tx, body.NewSkills)
+	if writeErr(c, err) {
+		return
+	}
+	if writeErr(c, syncProjectSkills(tx, id, append(body.SkillIDs, newIDs...))) {
+		return
+	}
+	if writeErr(c, tx.Commit()) {
+		return
+	}
 	c.JSON(http.StatusCreated, gin.H{"id": id, "slug": slug})
 }
 
@@ -199,17 +213,42 @@ func UpdateProject(c *gin.Context) {
 		fields["ended_at"] = *body.EndedAt
 	}
 
-	for col, val := range fields {
-		database.DB.Exec(`UPDATE projects SET `+col+`=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, val, id)
+	syncSkills := body.NewSkills != nil || body.SkillIDs != nil
+	if len(fields) == 0 && !syncSkills {
+		writeErr(c, errNothingToUpdate)
+		return
+	}
+
+	tx, err := database.DB.Begin()
+	if writeErr(c, err) {
+		return
+	}
+	defer tx.Rollback()
+
+	if len(fields) == 0 {
+		// skills-only update: just make sure the project exists
+		var exists int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM projects WHERE id = ?`, id).Scan(&exists); err != nil || exists == 0 {
+			writeErr(c, sql.ErrNoRows)
+			return
+		}
+	} else if writeErr(c, updateRow(tx, "projects", id, fields)) {
+		return
 	}
 
 	// Sync skills: create inline ones first, then merge with existing IDs
-	if body.NewSkills != nil || body.SkillIDs != nil {
-		newIDs := createInlineSkills(body.NewSkills)
-		allSkillIDs := append(body.SkillIDs, newIDs...)
-		syncProjectSkills(id, allSkillIDs)
+	if syncSkills {
+		newIDs, err := createInlineSkills(tx, body.NewSkills)
+		if writeErr(c, err) {
+			return
+		}
+		if writeErr(c, syncProjectSkills(tx, id, append(body.SkillIDs, newIDs...))) {
+			return
+		}
 	}
-
+	if writeErr(c, tx.Commit()) {
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"updated": true})
 }
 
@@ -293,7 +332,14 @@ func AddProjectImage(c *gin.Context) {
 // DELETE /api/admin/projects/images/:imageId
 func DeleteProjectImage(c *gin.Context) {
 	imgID, _ := strconv.ParseInt(c.Param("imageId"), 10, 64)
-	database.DB.Exec(`DELETE FROM project_images WHERE id=?`, imgID)
+	res, err := database.DB.Exec(`DELETE FROM project_images WHERE id=?`, imgID)
+	if writeErr(c, err) {
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		writeErr(c, sql.ErrNoRows)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"deleted": true})
 }
 
@@ -310,7 +356,7 @@ type NewSkill struct {
 
 // createInlineSkills inserts skills that don't yet exist (by slug) and returns
 // all their IDs so they can be linked to the project immediately.
-func createInlineSkills(newSkills []NewSkill) []int64 {
+func createInlineSkills(tx *sql.Tx, newSkills []NewSkill) ([]int64, error) {
 	var ids []int64
 	for _, ns := range newSkills {
 		if ns.Name == "" || ns.CategoryID == 0 {
@@ -319,18 +365,20 @@ func createInlineSkills(newSkills []NewSkill) []int64 {
 		slug := models.Slugify(ns.Name)
 
 		// Upsert: insert if not exists, otherwise just fetch the existing ID.
-		database.DB.Exec(`
+		if _, err := tx.Exec(`
 			INSERT OR IGNORE INTO skills (category_id, name, slug, proficiency, years, sort_order)
 			VALUES (?, ?, ?, ?, ?, ?)`,
-			ns.CategoryID, ns.Name, slug, ns.Proficiency, ns.Years, ns.SortOrder)
+			ns.CategoryID, ns.Name, slug, ns.Proficiency, ns.Years, ns.SortOrder); err != nil {
+			return nil, err
+		}
 
 		var skillID int64
-		err := database.DB.QueryRow(`SELECT id FROM skills WHERE slug=?`, slug).Scan(&skillID)
-		if err == nil {
-			ids = append(ids, skillID)
+		if err := tx.QueryRow(`SELECT id FROM skills WHERE slug=?`, slug).Scan(&skillID); err != nil {
+			return nil, err
 		}
+		ids = append(ids, skillID)
 	}
-	return ids
+	return ids, nil
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -376,11 +424,16 @@ func fetchProjectImages(projectID int64) []models.ProjectImage {
 	return imgs
 }
 
-func syncProjectSkills(projectID int64, skillIDs []int64) {
-	database.DB.Exec(`DELETE FROM project_skills WHERE project_id=?`, projectID)
-	for _, sid := range skillIDs {
-		database.DB.Exec(`
-			INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)`,
-			projectID, sid)
+func syncProjectSkills(tx *sql.Tx, projectID int64, skillIDs []int64) error {
+	if _, err := tx.Exec(`DELETE FROM project_skills WHERE project_id=?`, projectID); err != nil {
+		return err
 	}
+	for _, sid := range skillIDs {
+		if _, err := tx.Exec(`
+			INSERT OR IGNORE INTO project_skills (project_id, skill_id) VALUES (?, ?)`,
+			projectID, sid); err != nil {
+			return err
+		}
+	}
+	return nil
 }
